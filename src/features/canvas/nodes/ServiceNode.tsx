@@ -138,12 +138,16 @@ export function ServiceNode({
         {/* Icon */}
         <div className="w-10 h-10 rounded-lg overflow-hidden mb-2.5">{icon}</div>
 
-        {/* Label */}
-        <p className="text-xs font-medium text-ink/90 leading-snug truncate">
-          {node.label}
-        </p>
-        <p className="text-[10px] text-ink-dim truncate font-mono mt-0.5">
+        {/* Name (title) */}
+        <p className="text-xs font-semibold text-ink leading-snug truncate">
           {String(node.config.name ?? node.id)}
+        </p>
+
+        {/* Runtime or service type (subtitle) */}
+        <p className="text-[10px] text-ink-dim truncate font-mono mt-0.5">
+          {node.config.runtime
+            ? String(node.config.runtime)
+            : node.label}
         </p>
       </div>
 

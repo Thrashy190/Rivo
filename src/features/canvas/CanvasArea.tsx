@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useLayoutEffect } from "react";
 import { ServiceNode, SERVICE_NODE_WIDTH, SERVICE_NODE_HEIGHT } from "./nodes/ServiceNode";
 import { ContainerNode } from "./nodes/ContainerNode";
 import { EdgeLayer } from "./edges/EdgeLayer";
@@ -49,6 +49,13 @@ export function CanvasArea({
   const [isDragOver, setIsDragOver] = useState(false);
   const [connecting, setConnecting] = useState<ConnectingState | null>(null);
   const [highlightedContainerId, setHighlightedContainerId] = useState<string | null>(null);
+
+  // Live positions ref — updated synchronously during drag so EdgeLayer
+  // can read real-time positions without waiting for React re-renders.
+  const livePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  useLayoutEffect(() => {
+    nodes.forEach((n) => livePositionsRef.current.set(n.id, n.position));
+  }, [nodes]);
 
   // ── Panning ──────────────────────────────────────────────────────────────
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -146,8 +153,10 @@ export function CanvasArea({
   };
 
   const handleNodeMove = (nodeId: string, position: { x: number; y: number }) => {
+    // Update ref immediately (synchronous) so EdgeLayer RAF reads new position
+    livePositionsRef.current.set(nodeId, position);
     onMoveNode(nodeId, position);
-    // Highlight the container the node is hovering over during drag
+    // Highlight container while hovering
     const node = nodes.find((n) => n.id === nodeId);
     if (node?.variant !== "container") {
       const container = findContainerAt(position);
@@ -231,6 +240,7 @@ export function CanvasArea({
         <EdgeLayer
           nodes={nodes}
           edges={edges}
+          livePositionsRef={livePositionsRef}
           connecting={
             connecting
               ? { fromPos: connecting.fromPos, toPos: connecting.toPos }
