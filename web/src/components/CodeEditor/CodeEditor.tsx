@@ -1,5 +1,11 @@
-import Editor from "@monaco-editor/react";
+import { lazy, Suspense } from "react";
 import { useTheme } from "../../hooks/useTheme";
+
+// Monaco is large, so it only loads when an editor opens.
+const Editor = lazy(async () => {
+  await import("./monacoSetup");
+  return import("@monaco-editor/react");
+});
 
 export type CodeLanguage = "javascript" | "typescript" | "python" | "go" | "java" | "ruby";
 
@@ -32,30 +38,32 @@ export function CodeEditor({
   })();
 
   return (
-    <Editor
-      height={height}
-      language={language}
-      value={value}
-      theme={resolvedTheme}
-      onChange={(v) => onChange(v ?? "")}
-      options={{
-        fontSize: 12,
-        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-        lineHeight: 20,
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        wordWrap: "on",
-        tabSize: 2,
-        readOnly,
-        padding: { top: 12, bottom: 12 },
-        overviewRulerLanes: 0,
-        hideCursorInOverviewRuler: true,
-        renderLineHighlight: "line",
-        smoothScrolling: true,
-        cursorBlinking: "smooth",
-        cursorSmoothCaretAnimation: "on",
-        contextmenu: false,
-      }}
-    />
+    <Suspense fallback={<div style={{ height }} className="bg-card" aria-busy="true" />}>
+      <Editor
+        height={height}
+        language={language}
+        value={value}
+        theme={resolvedTheme}
+        onChange={(v) => onChange(v ?? "")}
+        options={{
+          fontSize: 12,
+          fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+          lineHeight: 20,
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          wordWrap: "on",
+          tabSize: 2,
+          readOnly,
+          padding: { top: 12, bottom: 12 },
+          overviewRulerLanes: 0,
+          hideCursorInOverviewRuler: true,
+          renderLineHighlight: "line",
+          smoothScrolling: true,
+          cursorBlinking: "smooth",
+          cursorSmoothCaretAnimation: "on",
+          contextmenu: false,
+        }}
+      />
+    </Suspense>
   );
 }

@@ -36,8 +36,11 @@ export function EdgeConfigPanel({
   // without stale-closure issues (handles panel closed by clicking elsewhere).
   const latestMethod = useRef(method);
   const latestPath   = useRef(path);
-  latestMethod.current = method;
-  latestPath.current   = path;
+
+  useEffect(() => {
+    latestMethod.current = method;
+    latestPath.current   = path;
+  }, [method, path]);
 
   useEffect(() => {
     gsap.fromTo(

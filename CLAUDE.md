@@ -31,6 +31,8 @@ To include the repository tests, start DynamoDB Local and set `RIVO_DYNAMODB_END
 - **Never run Terraform from a user or a repository.** The engine may only run what Rivo generates from its catalog: a `local-exec` in user HCL would run code with the engine's role.
 - **No credentials to the deployment task.** It gets a deployment ID and assumes the target role, with an external ID per connection.
 - **`go build ./...` drops a binary in a Lambda folder.** Use `go vet ./...` to check, as `make lint` does.
+- **Monaco is bundled, not loaded from a CDN** (`web/src/components/CodeEditor/monacoSetup.ts`). `@monaco-editor/react` defaults to a fixed CDN version that `npm audit` cannot see: it served a vulnerable 0.55.1 while `package.json` looked clean.
+- **Check security `overrides` in `web/package.json` when updating.** Remove one when the packages that depend on it ship a safe version.
 - **Use theme tokens** (`bg-page`, `text-ink`, `border-edge`), never raw colors like `text-white` or `bg-zinc-900`. Those hid the login button in light mode. White text is only for saturated fills.
 
 ## Layout
