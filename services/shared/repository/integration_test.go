@@ -136,6 +136,11 @@ func TestWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("delete member: %v", err)
 	}
 
+	all, err := workspaces.List(ctx)
+	if err != nil || len(all) != 2 {
+		t.Fatalf("list all workspaces: %+v, %v", all, err)
+	}
+
 	many, err := workspaces.GetMany(ctx, []string{"acme", "gone", "globex"})
 	if err != nil || len(many) != 2 {
 		t.Fatalf("get many: %+v, %v", many, err)

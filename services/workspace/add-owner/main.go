@@ -66,7 +66,7 @@ func init() {
 
 // Makes someone a workspace owner, the customer-side administrator. This is a
 // platform route: owners cannot create other owners. It is logged because it
-// is the one way a platform administrator can open a door into a workspace.
+// is how a platform administrator could gain write access to a workspace.
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	caller, err := authz.Require(ctx, users, req, user.PermWorkspacesManage)
 	if err != nil {

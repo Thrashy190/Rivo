@@ -23,6 +23,7 @@ type MembershipLister interface {
 
 type WorkspaceReader interface {
 	GetMany(ctx context.Context, ids []string) ([]workspace.Workspace, error)
+	List(ctx context.Context) ([]workspace.Workspace, error)
 }
 
 var (
@@ -42,7 +43,8 @@ func init() {
 	workspaces = repository.NewDynamoDBWorkspaceRepository(client, os.Getenv("WORKSPACES_TABLE_NAME"), os.Getenv("MEMBERS_TABLE_NAME"))
 }
 
-// Lists only the workspaces the caller belongs to, whatever their platform role.
+// Lists the workspaces the caller belongs to. Platform administrators get every
+// workspace in the installation, as viewers of those they are not members of.
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	u, err := authz.Caller(ctx, users, req)
 	if err != nil {
@@ -61,14 +63,23 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		roles[m.WorkspaceID] = m.Role
 	}
 
-	found, err := workspaces.GetMany(ctx, ids)
+	var found []workspace.Workspace
+	if u.IsPlatformAdmin() {
+		found, err = workspaces.List(ctx)
+	} else {
+		found, err = workspaces.GetMany(ctx, ids)
+	}
 	if err != nil {
 		return apigateway.Error(err), nil
 	}
 
 	summaries := make([]workspace.Summary, 0, len(found))
 	for _, w := range found {
-		summaries = append(summaries, workspace.Summary{Workspace: w, Role: roles[w.ID]})
+		role, isMember := roles[w.ID]
+		if !isMember {
+			role = workspace.RoleViewer
+		}
+		summaries = append(summaries, workspace.Summary{Workspace: w, Role: role})
 	}
 
 	return apigateway.Success(http.StatusOK, summaries), nil

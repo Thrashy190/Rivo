@@ -73,7 +73,7 @@ curl -X POST "$API/workspaces/WORKSPACE_ID/owners" -H "Authorization: $TOKEN" \
 curl -X DELETE "$API/workspaces/WORKSPACE_ID/owners/OLD_OWNER_USER_ID" -H "Authorization: $TOKEN"
 ```
 
-Platform administrators can only see the workspaces they belong to.
+Platform administrators can read every workspace but can only change those they belong to. Tell the people who use your installation about this access.
 
 ## Deploy the web app
 

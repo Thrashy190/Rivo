@@ -89,6 +89,25 @@ func (r *DynamoDBWorkspaceRepository) GetMany(ctx context.Context, ids []string)
 	return result, nil
 }
 
+// List returns every workspace in the installation, for platform administrators.
+// It reads each page, because a Scan returns at most 1 MB per call.
+func (r *DynamoDBWorkspaceRepository) List(ctx context.Context) ([]workspace.Workspace, error) {
+	result := []workspace.Workspace{}
+	pages := dynamodb.NewScanPaginator(r.client, &dynamodb.ScanInput{TableName: aws.String(r.table)})
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, apierrors.Internal(fmt.Errorf("dynamodb Scan: %w", err))
+		}
+		var batch []workspace.Workspace
+		if err := attributevalue.UnmarshalListOfMaps(page.Items, &batch); err != nil {
+			return nil, apierrors.Internal(fmt.Errorf("unmarshal workspaces: %w", err))
+		}
+		result = append(result, batch...)
+	}
+	return result, nil
+}
+
 type DynamoDBMembershipRepository struct {
 	client *dynamodb.Client
 	table  string

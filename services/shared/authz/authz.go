@@ -9,6 +9,7 @@ package authz
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/aws/aws-lambda-go/events"
 
@@ -88,7 +89,9 @@ func Require(ctx context.Context, loader UserLoader, req events.APIGatewayProxyR
 
 // RequireWorkspace is the guard for routes inside a workspace. A person outside
 // the workspace gets a 404, not a 403, so they cannot learn that it exists.
-// Platform roles grant nothing here: only a membership does.
+//
+// Platform administrators who are not members act as viewers: they can read
+// every workspace but change nothing, and each read is logged.
 func RequireWorkspace(ctx context.Context, users UserLoader, members MembershipLoader, req events.APIGatewayProxyRequest, perm string) (*user.User, *workspace.Membership, error) {
 	u, err := Caller(ctx, users, req)
 	if err != nil {
@@ -102,10 +105,17 @@ func RequireWorkspace(ctx context.Context, users UserLoader, members MembershipL
 
 	m, err := members.Get(ctx, workspaceID, u.ID)
 	if err != nil {
-		if apiErr, ok := errors.AsType[*apierrors.ApiError](err); ok && apiErr.Code == apierrors.CodeNotFound {
+		apiErr, ok := errors.AsType[*apierrors.ApiError](err)
+		if !ok || apiErr.Code != apierrors.CodeNotFound {
+			return nil, nil, err
+		}
+		if !u.IsPlatformAdmin() {
 			return nil, nil, apierrors.NotFound("workspace")
 		}
-		return nil, nil, err
+		m = &workspace.Membership{WorkspaceID: workspaceID, UserID: u.ID, Email: u.Email, Role: workspace.RoleViewer}
+		if m.Has(perm) {
+			log.Printf("audit: platform administrator %s used %s on workspace %s", u.ID, perm, workspaceID)
+		}
 	}
 
 	if !m.Has(perm) {

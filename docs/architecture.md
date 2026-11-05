@@ -25,10 +25,10 @@ Rivo has two kinds of administrator.
 | Who | The people who run this installation of Rivo | Someone from a customer team, who owns the resources created in the workspace |
 | Stored in | `users` table, role `admin` | `memberships` table, role `owner` |
 | Created by | Another platform administrator | A platform administrator |
-| Can do | Manage accounts, decide who can open workspaces, add and remove workspace owners | Everything inside their workspace, including inviting their team with a restricted role |
-| Cannot do | See what is inside a workspace without a membership | Create platform administrators or other owners |
+| Can do | Manage accounts, decide who can open workspaces, add and remove workspace owners, read every workspace | Everything inside their workspace, including inviting their team with a restricted role |
+| Cannot do | Change what is inside a workspace without a membership | Create platform administrators or other owners, see other workspaces |
 
-A platform role grants nothing inside a workspace. Adding an owner is the one way a platform administrator can open a door into a workspace, so `add-owner` writes an audit line to its log.
+A platform administrator who is not a member of a workspace acts as a viewer of it. Each of those reads, and each new owner, writes an audit line to the Lambda's log. People who use an installation should be told that its administrators can read their workspaces.
 
 ### Workspace roles
 
@@ -45,7 +45,7 @@ Owners can change or remove members with a restricted role, but not other owners
 
 1. API Gateway's Cognito authorizer validates the token.
 2. `authz.RequireWorkspace` loads the user and their membership in the workspace named in the path.
-3. A person outside the workspace gets a 404, so they cannot learn that it exists. A member without the permission gets a 403.
+3. A person outside the workspace gets a 404, so they cannot learn that it exists, unless they are a platform administrator, who can read it. Anyone without the permission gets a 403.
 4. Queries read only that workspace's partition in DynamoDB.
 
 ### Inviting someone
@@ -57,7 +57,7 @@ Public signup is closed in Cognito. `POST /workspaces/{workspaceId}/members` cre
 | Route | Permission |
 |---|---|
 | `POST /workspaces` | `workspaces:create` (platform) |
-| `GET /workspaces` | Signed in; lists only your workspaces |
+| `GET /workspaces` | Signed in; lists your workspaces, or all of them for a platform administrator |
 | `GET /workspaces/{workspaceId}` | `workspace:read` |
 | `POST /workspaces/{workspaceId}/owners` | `workspaces:manage` (platform) |
 | `DELETE /workspaces/{workspaceId}/owners/{userId}` | `workspaces:manage` (platform) |

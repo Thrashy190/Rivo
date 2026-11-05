@@ -104,7 +104,7 @@ module "lambda_list_workspaces" {
     },
     {
       Effect   = "Allow"
-      Action   = ["dynamodb:GetItem"]
+      Action   = ["dynamodb:GetItem", "dynamodb:Scan"]
       Resource = module.workspaces_table.arn
     }
   ]

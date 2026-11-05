@@ -29,7 +29,7 @@ docker stop rivo-dynamodb
 - **A bug fix comes with a test** that names the real case it came from.
 - **Update the docs in the same change** as the behaviour they describe.
 - Keep changes small and say *why* in the description, not only what.
-- **Tenant isolation is the first rule.** Every route inside a workspace goes through `authz.RequireWorkspace` and reads the workspace ID from the path, and every query is limited to that workspace. A change here needs a test proving that another workspace's member gets a 404.
+- **Tenant isolation is the first rule.** Every route inside a workspace goes through `authz.RequireWorkspace` and reads the workspace ID from the path, and every query is limited to that workspace. A change here needs a test proving that another workspace's member gets a 404. Platform administrators are the one exception, with read-only access.
 
 ## Commit messages and releases
 

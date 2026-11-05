@@ -71,7 +71,9 @@ func TestRequireWorkspace(t *testing.T) {
 		{"member with the permission", "alice", "acme", workspace.PermProjectsRead, 0},
 		{"member without the permission", "alice", "acme", workspace.PermMembersManage, 403},
 		{"member of another workspace cannot see this one", "bob", "acme", workspace.PermProjectsRead, 404},
-		{"platform admin without a membership cannot see customer data", "operator", "acme", workspace.PermProjectsRead, 404},
+		{"platform admin can read any workspace", "operator", "acme", workspace.PermProjectsRead, 0},
+		{"platform admin cannot change a workspace without a membership", "operator", "acme", workspace.PermProjectsUpdate, 403},
+		{"platform admin cannot manage its team without a membership", "operator", "acme", workspace.PermMembersManage, 403},
 		{"disabled user keeps no access", "disabled", "acme", workspace.PermProjectsRead, 403},
 		{"token with no user row", "ghost", "acme", workspace.PermProjectsRead, 403},
 	}
