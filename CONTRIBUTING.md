@@ -11,7 +11,7 @@ make install
 make check      # everything CI runs
 ```
 
-You need Node.js 22+, Go 1.27+ and Terraform 1.10+. You do not need an AWS account.
+You need Node.js 22+, Go 1.27+ and Terraform (tested with 1.14). You do not need an AWS account.
 
 The repository tests also run against DynamoDB Local when you ask for it. Without it, they skip themselves:
 

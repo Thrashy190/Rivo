@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="title desc">
+  <title id="title">How Rivo fits together</title>
+  <desc id="desc">Everything runs in your AWS account and Terraform creates it. The web app is served from S3 and CloudFront, and it is not connected to the API yet. API Gateway checks the Cognito token and calls Go Lambdas, which read and write DynamoDB. Cognito handles sign-in and emails invitations.</desc>
+  <defs>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#1b2526"/></pattern>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cf0e2"/><stop offset="1" stop-color="#22b8a8"/></linearGradient>
+    <filter id="lift" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity=".35"/></filter>
+    <marker id="a-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#2ec4b6"/></marker>
+    <marker id="a-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#92a3a2"/></marker>
+  </defs>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .h { font-size: 22px; font-weight: 700; fill: #e8f1f0; }
+    .sub { font-size: 14px; fill: #92a3a2; }
+    .group { font-size: 12px; font-weight: 700; letter-spacing: 1.4px; fill: #92a3a2; }
+    .t { font-size: 15px; font-weight: 650; fill: #e8f1f0; }
+    .d { font-size: 12.5px; fill: #a9bab9; }
+    .label { font-size: 12px; font-weight: 600; fill: #92a3a2; }
+    .tl { font-size: 12px; font-weight: 600; fill: #2ec4b6; }
+    .card { fill: #161d1e; stroke: #2a3536; stroke-width: 1.2; filter: url(#lift); }
+    .hi { stroke: #2ec4b6; }
+    .box { fill: none; stroke: #2a3536; stroke-width: 1.2; stroke-dasharray: 5 5; }
+    .e { fill: none; stroke: #2ec4b6; stroke-width: 2; }
+    .g { fill: none; stroke: #92a3a2; stroke-width: 2; }
+    .dash { stroke-dasharray: 6 6; }
+  </style>
+  <rect width="1280" height="640" rx="16" fill="#0e1314"/>
+  <rect width="1280" height="640" rx="16" fill="url(#dots)"/>
+  <text x="40" y="52" class="h">How Rivo fits together</text>
+  <text x="40" y="76" class="sub">Everything runs in your AWS account. Terraform in infra/ creates it.</text>
+
+  <rect x="40" y="228" width="170" height="104" rx="12" class="card"/>
+  <text x="60" y="270" class="t">Your team</text>
+  <text x="60" y="294" class="d">In the browser</text>
+
+  <rect x="256" y="112" width="984" height="490" rx="14" class="box"/>
+  <text x="276" y="140" class="group">YOUR AWS ACCOUNT</text>
+
+  <rect x="290" y="166" width="220" height="104" rx="12" class="card"/>
+  <text x="310" y="204" class="t">Web app</text>
+  <text x="310" y="228" class="d">S3 and CloudFront</text>
+  <text x="310" y="248" class="d">Sample data for now</text>
+
+  <rect x="290" y="342" width="220" height="104" rx="12" class="card"/>
+  <text x="310" y="380" class="t">Cognito</text>
+  <text x="310" y="404" class="d">Sign-in, invitations by email</text>
+  <text x="310" y="424" class="d">No public signup</text>
+
+  <rect x="600" y="166" width="220" height="104" rx="12" class="card hi"/>
+  <text x="620" y="204" class="t">API Gateway</text>
+  <text x="620" y="228" class="d">Checks the Cognito token</text>
+  <text x="620" y="248" class="d">before any Lambda runs</text>
+
+  <rect x="600" y="342" width="220" height="186" rx="12" class="card hi"/>
+  <text x="620" y="380" class="t">Go Lambdas</text>
+  <text x="620" y="404" class="d">One for each action</text>
+  <text x="620" y="436" class="d">Accounts and sign-in</text>
+  <text x="620" y="458" class="d">Workspaces and members</text>
+  <text x="620" y="480" class="d">Folders and projects</text>
+  <text x="620" y="502" class="d">Permission check on each one</text>
+
+  <rect x="910" y="342" width="290" height="186" rx="12" class="card"/>
+  <text x="930" y="380" class="t">DynamoDB</text>
+  <text x="930" y="404" class="d">Queries stay inside one workspace</text>
+  <text x="930" y="436" class="d">users</text>
+  <text x="930" y="458" class="d">workspaces and memberships</text>
+  <text x="930" y="480" class="d">folders</text>
+  <text x="930" y="502" class="d">projects</text>
+
+  <path d="M210 262H250Q270 262 270 242V228Q270 218 280 218H288" class="g" marker-end="url(#a-grey)"/>
+  <path d="M210 298H250Q270 298 270 318V384Q270 394 280 394H288" class="g" marker-end="url(#a-grey)"/>
+  <path d="M510 218H598" class="g dash" marker-end="url(#a-grey)"/>
+  <text x="555" y="206" text-anchor="middle" class="label">not connected</text>
+  <path d="M710 270V340" class="e" marker-end="url(#a-teal)"/>
+  <path d="M820 435H908" class="e" marker-end="url(#a-teal)"/>
+  <path d="M598 394H512" class="e" marker-end="url(#a-teal)"/>
+  <text x="555" y="384" text-anchor="middle" class="tl">invites</text>
+</svg>

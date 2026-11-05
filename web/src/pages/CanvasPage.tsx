@@ -36,6 +36,8 @@ export function CanvasPage() {
 
   const { byId: serviceById } = useServices();
 
+  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotCanvas([], []));
+
   // ── Load project on mount ─────────────────────────────────────────────────
   const bootstrapped = useRef(false);
   useEffect(() => {
@@ -52,7 +54,6 @@ export function CanvasPage() {
   }, [id]);
 
   // ── Change detection ──────────────────────────────────────────────────────
-  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotCanvas([], []));
   const [isSaving, setIsSaving] = useState(false);
 
   const currentSnapshot = snapshotCanvas(nodes, edges);
