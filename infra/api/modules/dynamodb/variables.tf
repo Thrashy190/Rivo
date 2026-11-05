@@ -43,3 +43,13 @@ variable "point_in_time_recovery" {
   default     = true
   description = "Enable point-in-time recovery (continuous backups)"
 }
+
+variable "global_secondary_indexes" {
+  type = list(object({
+    name      = string
+    hash_key  = string
+    range_key = optional(string)
+  }))
+  default     = []
+  description = "Global secondary indexes. Every key they use must also be declared in attributes."
+}

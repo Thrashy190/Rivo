@@ -61,6 +61,10 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		return apigateway.Error(err), nil
 	}
 
+	if !caller.CanManage(target) {
+		return apigateway.Error(apierrors.Forbidden("only a platform administrator can delete this user")), nil
+	}
+
 	// Cognito first: if it fails, the row stays and the deletion can be retried.
 	// The other way round would leave a user able to authenticate with no
 	// permissions, which is a more confusing state to diagnose.

@@ -571,5 +571,5 @@ module "api" {
   api_execution_arn = module.rest_api.execution_arn
   authorizer_id     = module.api_authorizer.id
   environment       = var.environment
-  routes            = local.routes
+  routes            = merge(local.routes, local.workspace_routes)
 }

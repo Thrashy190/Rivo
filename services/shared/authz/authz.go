@@ -14,10 +14,15 @@ import (
 
 	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
 	"github.com/Thrashy190/Rivo/services/shared/models/user"
+	"github.com/Thrashy190/Rivo/services/shared/models/workspace"
 )
 
 type UserLoader interface {
 	GetByID(ctx context.Context, id string) (*user.User, error)
+}
+
+type MembershipLoader interface {
+	Get(ctx context.Context, workspaceID, userID string) (*workspace.Membership, error)
 }
 
 type Identity struct {
@@ -79,4 +84,33 @@ func Require(ctx context.Context, loader UserLoader, req events.APIGatewayProxyR
 	}
 
 	return u, nil
+}
+
+// RequireWorkspace is the guard for routes inside a workspace. A person outside
+// the workspace gets a 404, not a 403, so they cannot learn that it exists.
+// Platform roles grant nothing here: only a membership does.
+func RequireWorkspace(ctx context.Context, users UserLoader, members MembershipLoader, req events.APIGatewayProxyRequest, perm string) (*user.User, *workspace.Membership, error) {
+	u, err := Caller(ctx, users, req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	workspaceID := req.PathParameters["workspaceId"]
+	if workspaceID == "" {
+		return nil, nil, apierrors.Validation("workspaceId is required")
+	}
+
+	m, err := members.Get(ctx, workspaceID, u.ID)
+	if err != nil {
+		if apiErr, ok := errors.AsType[*apierrors.ApiError](err); ok && apiErr.Code == apierrors.CodeNotFound {
+			return nil, nil, apierrors.NotFound("workspace")
+		}
+		return nil, nil, err
+	}
+
+	if !m.Has(perm) {
+		return nil, nil, apierrors.Forbidden("missing permission: " + perm)
+	}
+
+	return u, m, nil
 }

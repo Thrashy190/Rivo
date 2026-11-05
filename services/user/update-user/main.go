@@ -71,6 +71,25 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		}
 	}
 
+	target, err := users.GetByID(ctx, id)
+	if err != nil {
+		return apigateway.Error(err), nil
+	}
+	if !caller.CanManage(target) {
+		return apigateway.Error(apierrors.Forbidden("only a platform administrator can change this user")), nil
+	}
+	var role user.Role
+	if in.Role != nil {
+		role = *in.Role
+	}
+	var perms []string
+	if in.Permissions != nil {
+		perms = *in.Permissions
+	}
+	if !caller.CanGrant(role, perms) {
+		return apigateway.Error(apierrors.Forbidden("only a platform administrator can grant this access")), nil
+	}
+
 	updated, err := users.Update(ctx, id, in)
 	if err != nil {
 		return apigateway.Error(err), nil

@@ -9,6 +9,10 @@ const (
 	RoleEditor   Role = "editor"
 	RoleOperator Role = "operator"
 	RoleViewer   Role = "viewer"
+
+	// RoleMember has no platform-wide permissions: everything this user can do
+	// comes from their memberships in workspaces.
+	RoleMember Role = "member"
 )
 
 // Permission table: every protected API action requires one of these.
@@ -21,6 +25,13 @@ const (
 	PermProjectsExecute = "projects:execute"
 	PermUsersRead       = "users:read"
 	PermUsersManage     = "users:manage"
+
+	// PermWorkspacesCreate lets a user open new workspaces on this installation.
+	PermWorkspacesCreate = "workspaces:create"
+
+	// PermWorkspacesManage lets a user add and remove workspace owners. It only
+	// covers owners: it gives no access to what is inside the workspace.
+	PermWorkspacesManage = "workspaces:manage"
 
 	// PermAll is the wildcard used by the admin role.
 	PermAll = "*"
@@ -46,6 +57,7 @@ var RolePermissions = map[Role][]string{
 	},
 	RoleOperator: {PermProjectsRead, PermProjectsExecute},
 	RoleViewer:   {PermProjectsRead},
+	RoleMember:   {},
 }
 
 var allPermissions = []string{
@@ -56,8 +68,14 @@ var allPermissions = []string{
 	PermProjectsExecute,
 	PermUsersRead,
 	PermUsersManage,
+	PermWorkspacesCreate,
+	PermWorkspacesManage,
 	PermAll,
 }
+
+// privilegedPermissions run the installation, so only a platform administrator
+// can grant them.
+var privilegedPermissions = []string{PermAll, PermUsersManage, PermWorkspacesCreate, PermWorkspacesManage}
 
 type User struct {
 	ID          string   `dynamodbav:"id" json:"id"`
@@ -84,6 +102,37 @@ func (u *User) Has(perm string) bool {
 }
 
 func (u *User) IsActive() bool { return u.Status == StatusActive }
+
+// IsPlatformAdmin reports whether the user is one of the people who run this
+// installation of Rivo. This is not the same as a workspace owner.
+func (u *User) IsPlatformAdmin() bool {
+	return slices.Contains(u.EffectivePermissions(), PermAll)
+}
+
+// CanGrant reports whether the user may give someone this role and these
+// permissions. Only platform administrators can create other administrators.
+func (u *User) CanGrant(role Role, perms []string) bool {
+	if u.IsPlatformAdmin() {
+		return true
+	}
+	if role == RoleAdmin {
+		return false
+	}
+	return !slices.ContainsFunc(perms, func(p string) bool {
+		return slices.Contains(privilegedPermissions, p)
+	})
+}
+
+// CanManage reports whether the user may change or delete the target. Only
+// platform administrators can touch someone with privileged permissions.
+func (u *User) CanManage(target *User) bool {
+	if u.IsPlatformAdmin() {
+		return true
+	}
+	return !slices.ContainsFunc(target.EffectivePermissions(), func(p string) bool {
+		return slices.Contains(privilegedPermissions, p)
+	})
+}
 
 func ValidRole(r Role) bool {
 	_, ok := RolePermissions[r]

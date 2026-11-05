@@ -51,7 +51,8 @@ func init() {
 // password and the first login goes through the NEW_PASSWORD_REQUIRED
 // challenge.
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	if _, err := authz.Require(ctx, users, req, user.PermUsersManage); err != nil {
+	caller, err := authz.Require(ctx, users, req, user.PermUsersManage)
+	if err != nil {
 		return apigateway.Error(err), nil
 	}
 
@@ -69,6 +70,10 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		if !user.ValidPermission(p) {
 			return apigateway.Error(apierrors.Validation("invalid permission: " + p)), nil
 		}
+	}
+
+	if !caller.CanGrant(in.Role, in.Permissions) {
+		return apigateway.Error(apierrors.Forbidden("only a platform administrator can grant this access")), nil
 	}
 
 	created, err := cognitoClient.AdminCreateUser(ctx, &cognitoidentityprovider.AdminCreateUserInput{
