@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-  <!-- Top face: lightest -->
-  <polygon fill="#c4b5fd" points="24,4 41,14 24,24 7,14"/>
-  <!-- Right face: brand primary -->
-  <polygon fill="#863bff" points="41,14 41,34 24,44 24,24"/>
-  <!-- Left face: darkest -->
-  <polygon fill="#5b21b6" points="7,14 24,24 24,44 7,34"/>
-</svg>

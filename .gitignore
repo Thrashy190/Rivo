@@ -1,18 +1,48 @@
-# OS
+# OS and editors
 .DS_Store
-
-# Secrets (aplica a todo el monorepo)
-.env
-.env.*
-!.env.example
-
-# Editor
 .idea/
 .vscode/*
 !.vscode/extensions.json
+*.sw?
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+
+# Personal notes for tools
+CLAUDE.local.md
+
+# Node
+node_modules/
+web/dist/
+web/dist-ssr/
+web/storybook-static/
+*.local
+*.log
+*storybook.log
+
+# Go
+services/go.work
+services/build/
+bootstrap
+*.test
+coverage.out
+coverage.*.out
 
 # Terraform
 .terraform/
+.plans/
+terraform-state/
 *.tfstate
 *.tfstate.*
 *.tfplan
+tf-*-plan.out
+crash.log
+crash.*.log
+
+# Build artifacts
+*.zip

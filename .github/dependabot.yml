@@ -1,0 +1,31 @@
+# Grouped and monthly: one pull request to read, not one per library. Security fixes still arrive straight away.
+# fix: on what ends up in the product, so that merging it makes a release and people get it. CI tools change nothing for them.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    groups:
+      actions: { patterns: ["*"] }
+    commit-message: { prefix: ci }
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: monthly }
+    groups:
+      dependencies: { patterns: ["*"] }
+    commit-message: { prefix: fix, prefix-development: chore }
+
+  - package-ecosystem: gomod
+    directories: ["/services/**/*"]
+    schedule: { interval: monthly }
+    groups:
+      dependencies: { patterns: ["*"] }
+    commit-message: { prefix: fix }
+
+  - package-ecosystem: terraform
+    directories: ["/infra/api", "/infra/web"]
+    schedule: { interval: monthly }
+    groups:
+      providers: { patterns: ["*"] }
+    commit-message: { prefix: chore }

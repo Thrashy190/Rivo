@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/* ── Class-based dark mode variant ───────────────────────────── */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Semantic color tokens → Tailwind utilities ──────────────── */
+/*
+  Utilities generated:
+    bg-page, bg-card, bg-popover, bg-raised
+    border-edge
+    text-ink, text-ink-dim
+*/
+@theme {
+  --color-page:    var(--theme-page);
+  --color-card:    var(--theme-card);
+  --color-popover: var(--theme-popover);
+  --color-raised:  var(--theme-raised);
+  --color-edge:    var(--theme-edge);
+  --color-ink:     var(--theme-ink);
+  --color-ink-dim: var(--theme-ink-dim);
+}
+
+/* ── Dark theme (also the default/fallback) ──────────────────── */
+:root,
+:root.dark {
+  color-scheme: dark;
+  --theme-page:    #09090b; /* zinc-950  */
+  --theme-card:    #18181b; /* zinc-900  */
+  --theme-popover: #18181b; /* zinc-900  */
+  --theme-raised:  #27272a; /* zinc-800  */
+  --theme-edge:    #27272a; /* zinc-800  */
+  --theme-ink:     #ffffff;
+  --theme-ink-dim: #a1a1aa; /* zinc-400  */
+  --theme-logo-face: #16282a;
+}
+
+/* ── Light theme ─────────────────────────────────────────────── */
+:root.light {
+  color-scheme: light;
+  --theme-page:    #ffffff;
+  --theme-card:    #f4f4f5; /* zinc-100  */
+  --theme-popover: #ffffff;
+  --theme-raised:  #e4e4e7; /* zinc-200  */
+  --theme-edge:    #d4d4d8; /* zinc-300  */
+  --theme-ink:     #09090b; /* zinc-950  */
+  --theme-ink-dim: #52525b; /* zinc-600  */
+  --theme-logo-face: #ddebe9;
+}
+
+/* ── Base ────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--theme-page);
+    color: var(--theme-ink);
+  }
+}
