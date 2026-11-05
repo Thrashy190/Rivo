@@ -32,9 +32,9 @@ func init() {
 	users = repository.NewDynamoDBUserRepository(dynamodb.NewFromConfig(cfg), os.Getenv("USERS_TABLE_NAME"))
 }
 
-// No exige ningún permiso puntual: cualquier usuario activo puede leer su
-// propio perfil. Devuelve los permisos ya resueltos para que el frontend
-// no tenga que replicar la tabla de roles.
+// Requires no specific permission: any active user can read their own
+// profile. It returns resolved permissions so the frontend does not have to
+// replicate the role table.
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	me, err := authz.Caller(ctx, users, req)
 	if err != nil {

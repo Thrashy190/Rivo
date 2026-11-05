@@ -1,15 +1,15 @@
 variable "rest_api_id" {
   type        = string
-  description = "ID de la REST API ya creada"
+  description = "ID of the existing REST API"
 }
 
 variable "api_execution_arn" {
   type        = string
-  description = "execution_arn de la REST API"
+  description = "execution_arn of the REST API"
 }
 
 variable "routes" {
-  description = "Mapa de rutas a conectar: resource_id, http_method, route_path y datos de la lambda destino. public = true deja la ruta sin authorizer (solo login y new-password, que corren antes de que exista un token)"
+  description = "Routes to connect: resource_id, http_method, route_path and target Lambda details. public = true leaves the route without an authorizer (only login and new-password, which run before a token exists)"
 
   type = map(object({
     resource_id = string
@@ -25,7 +25,7 @@ variable "routes" {
 
 variable "authorizer_id" {
   type        = string
-  description = "ID del authorizer de Cognito que protege las rutas no públicas"
+  description = "ID of the Cognito authorizer protecting non-public routes"
 }
 
 variable "environment" {

@@ -24,8 +24,8 @@ func NewDynamoDBUserRepository(client *dynamodb.Client, table string) *DynamoDBU
 	return &DynamoDBUserRepository{client: client, table: table}
 }
 
-// GetByID satisface authz.UserLoader, así que lo llama cada handler
-// protegido una vez por request.
+// GetByID satisfies authz.UserLoader, so every protected handler calls it
+// once per request.
 func (r *DynamoDBUserRepository) GetByID(ctx context.Context, id string) (*user.User, error) {
 	out, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.table),

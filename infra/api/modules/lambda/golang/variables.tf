@@ -41,7 +41,7 @@ variable "environment" {
 }
 
 variable "environment_variables" {
-  description = "Variables de entorno a inyectar en la Lambda"
+  description = "Environment variables to inject into the Lambda"
   type        = map(string)
   default     = {}
 }

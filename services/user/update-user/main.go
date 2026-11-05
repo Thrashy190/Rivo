@@ -35,9 +35,9 @@ func init() {
 	users = repository.NewDynamoDBUserRepository(dynamodb.NewFromConfig(cfg), os.Getenv("USERS_TABLE_NAME"))
 }
 
-// Acá es donde el admin reparte accesos: cambia el rol, pisa permisos
-// puntuales (ej. editor que no puede crear proyectos) o deshabilita a
-// alguien.
+// This is where the admin hands out access: change the role, override
+// specific permissions (such as an editor who cannot create projects) or
+// disable someone.
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	caller, err := authz.Require(ctx, users, req, user.PermUsersManage)
 	if err != nil {
@@ -48,7 +48,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	if id == "" {
 		return apigateway.Error(apierrors.Validation("id is required")), nil
 	}
-	// Evita que el único admin se quede sin acceso a la gestión de usuarios.
+	// Keeps the only admin from losing access to user management.
 	if id == caller.ID {
 		return apigateway.Error(apierrors.Validation("cannot modify your own access")), nil
 	}

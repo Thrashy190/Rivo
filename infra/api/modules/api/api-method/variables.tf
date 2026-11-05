@@ -1,11 +1,11 @@
 variable "rest_api_id" {
   type        = string
-  description = "ID de la REST API"
+  description = "ID of the REST API"
 }
 
 variable "resource_id" {
   type        = string
-  description = "ID del resource (path) al que se cuelga este método"
+  description = "ID of the resource (path) this method hangs from"
 }
 
 variable "http_method" {
@@ -15,22 +15,22 @@ variable "http_method" {
 
 variable "route_path" {
   type        = string
-  description = "Path completo desde la raíz, sin slash inicial, ej. \"projects/{id}\". Se usa para el source_arn del permission."
+  description = "Full path from the root, without a leading slash, such as \"projects/{id}\". Used for the permission source_arn."
 }
 
 variable "lambda_invoke_arn" {
   type        = string
-  description = "invoke_arn de la Lambda destino"
+  description = "invoke_arn of the target Lambda"
 }
 
 variable "lambda_function_name" {
   type        = string
-  description = "Nombre de la Lambda destino"
+  description = "Name of the target Lambda"
 }
 
 variable "api_execution_arn" {
   type        = string
-  description = "execution_arn de la REST API"
+  description = "execution_arn of the REST API"
 }
 
 variable "authorization" {

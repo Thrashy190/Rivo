@@ -1,10 +1,9 @@
-// Package authz resuelve quién llama y si puede hacer la acción pedida.
+// Package authz resolves who is calling and whether they can do what they asked.
 //
-// El authorizer de Cognito en API Gateway ya validó la firma del JWT antes
-// de que el lambda corra, así que acá no se verifica ningún token: solo se
-// leen los claims y se busca al usuario en la tabla users, que es la fuente
-// de verdad de los permisos (así un cambio del admin aplica al instante,
-// sin esperar a que el token se renueve).
+// The Cognito authorizer in API Gateway already validated the JWT signature
+// before the Lambda runs, so no token is verified here: it only reads the claims
+// and looks up the user in the users table, the source of truth for permissions
+// (an admin's change applies immediately, without waiting for a token refresh).
 package authz
 
 import (
@@ -41,8 +40,8 @@ func IdentityFrom(req events.APIGatewayProxyRequest) (Identity, error) {
 	return Identity{Sub: sub, Email: email}, nil
 }
 
-// Caller devuelve el usuario que hace el request, ya validado como activo,
-// sin exigirle ningún permiso puntual (lo que necesita GET /users/me).
+// Caller returns the user making the request, already checked as active,
+// without requiring any specific permission (what GET /users/me needs).
 func Caller(ctx context.Context, loader UserLoader, req events.APIGatewayProxyRequest) (*user.User, error) {
 	id, err := IdentityFrom(req)
 	if err != nil {
@@ -51,8 +50,8 @@ func Caller(ctx context.Context, loader UserLoader, req events.APIGatewayProxyRe
 
 	u, err := loader.GetByID(ctx, id.Sub)
 	if err != nil {
-		// Token válido pero sin fila en la tabla = existe en Cognito y
-		// todavía no tiene accesos asignados: es 403, no 404.
+		// Valid token but no row in the table: the user exists in Cognito and
+		// has no access assigned yet. That is a 403, not a 404.
 		if apiErr, ok := errors.AsType[*apierrors.ApiError](err); ok && apiErr.Code == apierrors.CodeNotFound {
 			return nil, apierrors.Forbidden("user has no access assigned")
 		}
@@ -66,9 +65,9 @@ func Caller(ctx context.Context, loader UserLoader, req events.APIGatewayProxyRe
 	return u, nil
 }
 
-// Require es el guard que usa cada handler protegido: devuelve el usuario
-// o un ApiError listo para responder (401 si no hay identidad, 403 si le
-// falta el permiso).
+// Require is the guard every protected handler uses: it returns the user
+// or an ApiError ready to send (401 with no identity, 403 if the permission
+// is missing).
 func Require(ctx context.Context, loader UserLoader, req events.APIGatewayProxyRequest, perm string) (*user.User, error) {
 	u, err := Caller(ctx, loader, req)
 	if err != nil {

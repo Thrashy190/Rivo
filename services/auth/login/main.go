@@ -53,9 +53,9 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		return apigateway.Error(apierrors.FromCognitoAuthError(err)), nil
 	}
 
-	// Sin AuthenticationResult, Cognito está pidiendo un challenge en vez
-	// de entregar tokens: el caso normal es NEW_PASSWORD_REQUIRED en el
-	// primer login de un usuario que el admin creó con password temporal.
+	// Without AuthenticationResult, Cognito is asking for a challenge instead of
+	// returning tokens: the normal case is NEW_PASSWORD_REQUIRED on the first login
+	// of a user the admin created with a temporary password.
 	if out.AuthenticationResult == nil {
 		return apigateway.Success(http.StatusOK, auth.LoginOutput{
 			Challenge: string(out.ChallengeName),

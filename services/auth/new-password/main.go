@@ -32,10 +32,10 @@ func init() {
 	clientID = os.Getenv("USER_POOL_CLIENT_ID")
 }
 
-// Cierra el challenge NEW_PASSWORD_REQUIRED que devuelve POST /auth/login
-// cuando el usuario entra por primera vez con la password temporal que le
-// mandó Cognito. Es público porque todavía no hay tokens: lo que autentica
-// el request es la session que vino del login.
+// Completes the NEW_PASSWORD_REQUIRED challenge returned by POST /auth/login
+// when a user signs in for the first time with the temporary password from
+// Cognito. It is public because there are no tokens yet: the session from the
+// login is what authenticates the request.
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var in auth.NewPasswordInput
 	if err := json.Unmarshal([]byte(req.Body), &in); err != nil {

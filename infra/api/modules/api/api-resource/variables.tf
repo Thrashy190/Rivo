@@ -1,14 +1,14 @@
 variable "rest_api_id" {
   type        = string
-  description = "ID de la REST API a la que pertenece este resource"
+  description = "ID of the REST API this resource belongs to"
 }
 
 variable "parent_id" {
   type        = string
-  description = "ID del resource padre (root_resource_id si cuelga de la raíz)"
+  description = "ID of the parent resource (root_resource_id if it hangs from the root)"
 }
 
 variable "path_part" {
   type        = string
-  description = "Segmento de path, ej. \"projects\" o \"{id}\""
+  description = "Path segment, such as \"projects\" or \"{id}\""
 }

@@ -4,10 +4,9 @@ import (
 	"net/http"
 )
 
-// Tabla de códigos de error: toda la API responde con uno de estos
-// códigos en el body (ver apigateway.Error), así que es la única fuente
-// de verdad tanto para los constructores de abajo como para quien
-// consuma la API (frontend, docs, tests).
+// Error code table: the whole API answers with one of these codes in the body
+// (see apigateway.Error), so this is the single source of truth for the
+// constructors below and for anyone consuming the API (frontend, docs, tests).
 const (
 	CodeNotFound     = "NOT_FOUND"
 	CodeValidation   = "VALIDATION_ERROR"
@@ -45,8 +44,8 @@ func Unauthorized(msg string) *ApiError {
 	return &ApiError{Code: CodeUnauthorized, Message: msg, StatusCode: http.StatusUnauthorized}
 }
 
-// Forbidden: el usuario está autenticado pero no tiene el permiso que
-// la acción exige (a diferencia de Unauthorized, que es "no sé quién sos").
+// Forbidden: the user is authenticated but lacks the permission the action
+// requires (unlike Unauthorized, which means "I do not know who you are").
 func Forbidden(msg string) *ApiError {
 	return &ApiError{Code: CodeForbidden, Message: msg, StatusCode: http.StatusForbidden}
 }

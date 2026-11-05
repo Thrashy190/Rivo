@@ -5,10 +5,10 @@ type LoginInput struct {
 	Password string `json:"password"`
 }
 
-// LoginOutput trae los tokens, o un challenge cuando Cognito no puede
-// autenticar todavía. El caso normal es NEW_PASSWORD_REQUIRED: el usuario
-// fue creado por el admin y entra con password temporal, así que tiene que
-// pasar por POST /auth/new-password antes de recibir tokens.
+// LoginOutput carries the tokens, or a challenge when Cognito cannot
+// authenticate yet. The normal case is NEW_PASSWORD_REQUIRED: the admin created
+// the user, who arrives with a temporary password and must go through
+// POST /auth/new-password before receiving tokens.
 type LoginOutput struct {
 	IDToken      string `json:"idToken,omitempty"`
 	AccessToken  string `json:"accessToken,omitempty"`

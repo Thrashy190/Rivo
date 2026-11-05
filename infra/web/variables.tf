@@ -6,7 +6,7 @@ variable "environment" {
 variable "domain_aliases" {
   type        = list(string)
   default     = []
-  description = "Custom domain aliases for CloudFront (e.g. [\"app.rivo.io\"]). Leave empty to use the default *.cloudfront.net domain."
+  description = "Custom domain aliases for CloudFront (e.g. [\"rivo.example.com\"]). Leave empty to use the default *.cloudfront.net domain."
 }
 
 variable "acm_certificate_arn" {

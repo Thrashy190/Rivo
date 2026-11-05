@@ -1,6 +1,6 @@
-// Authorizer de Cognito: valida la firma y la expiración del JWT antes de
-// que la lambda corra, así ningún handler tiene que verificar tokens. Los
-// claims llegan en requestContext.authorizer.claims.
+// Cognito authorizer: validates the JWT signature and expiry before the Lambda
+// runs, so no handler has to verify tokens. Claims arrive in
+// requestContext.authorizer.claims.
 resource "aws_api_gateway_authorizer" "this" {
   name          = "${var.environment}-cognito-authorizer"
   type          = "COGNITO_USER_POOLS"

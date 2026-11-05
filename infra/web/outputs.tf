@@ -5,7 +5,7 @@ output "bucket_name" {
 
 output "cloudfront_domain" {
   value       = module.cloudfront_frontend.domain_name
-  description = "Public URL of the rivo-app frontend (e.g. d1234abcd.cloudfront.net)"
+  description = "Public URL of the web app (e.g. d1234abcd.cloudfront.net)"
 }
 
 output "cloudfront_distribution_id" {

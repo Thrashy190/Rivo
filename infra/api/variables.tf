@@ -5,12 +5,12 @@ locals {
 }
 
 output "api_base_url" {
-  description = "URL base de la API, sin path"
+  description = "Base URL of the API, without a path"
   value       = local.api_base_url
 }
 
 output "endpoints" {
-  description = "Método y URL completa de cada endpoint registrado"
+  description = "Method and full URL of every registered endpoint"
   value = {
     for key, route in local.routes :
     key => "${route.http_method} ${local.api_base_url}/${route.route_path}"
@@ -27,15 +27,15 @@ variable "environment" {
   description = "Environment"
 }
 
-# Sin signup público, el admin inicial es la única puerta de entrada al
-# sistema recién instalado, así que esto es obligatorio y tiene que ser un
-# mail real: ahí llega la password temporal.
+# With no public signup, the initial admin is the only way into a fresh
+# installation, so this is required and must be a real email address: the
+# temporary password is sent there.
 variable "admin_email" {
   type        = string
-  description = "Email del usuario admin inicial"
+  description = "Email of the initial admin user"
 
   validation {
     condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.admin_email)) && var.admin_email != "CHANGE_ME@example.com"
-    error_message = "admin_email tiene que ser un email real (editá environments/<env>/<env>.tfvars): ahí llega la password temporal del admin inicial."
+    error_message = "admin_email must be a real email address (edit environments/<env>/<env>.tfvars): the temporary password for the initial admin is sent there."
   }
 }

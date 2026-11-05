@@ -16,9 +16,9 @@ resource "aws_cognito_user_pool" "this" {
     default_email_option = "CONFIRM_WITH_CODE"
   }
 
-  # Sin signup público: un usuario entra solo si alguien con users:manage
-  # lo crea vía POST /users (AdminCreateUser), que es lo que hace que el
-  # admin sea el que reparte accesos.
+  # No public signup: a user only gets in if someone with users:manage
+  # creates them through POST /users (AdminCreateUser), which is what makes the
+  # admin the one who hands out access.
   admin_create_user_config {
     allow_admin_create_user_only = true
   }
@@ -48,10 +48,10 @@ resource "aws_cognito_user_pool_client" "app" {
   prevent_user_existence_errors = "ENABLED"
 }
 
-# Admin inicial del deploy: como el signup está cerrado, sin este usuario
-# no habría forma de entrar al sistema recién instalado. Cognito le manda
-# la password temporal por mail y su primer login pasa por el challenge
-# NEW_PASSWORD_REQUIRED (POST /auth/new-password).
+# Initial admin of the deployment: signup is closed, so without this user
+# there would be no way into a fresh installation. Cognito emails them the
+# temporary password, and their first login goes through the
+# NEW_PASSWORD_REQUIRED challenge (POST /auth/new-password).
 resource "aws_cognito_user" "admin" {
   user_pool_id = aws_cognito_user_pool.this.id
   username     = var.admin_email

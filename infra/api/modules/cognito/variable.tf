@@ -10,5 +10,5 @@ variable "environment" {
 
 variable "admin_email" {
   type        = string
-  description = "Email del usuario admin inicial. Cognito le manda la password temporal a esta dirección."
+  description = "Email of the initial admin user. Cognito sends the temporary password to this address."
 }

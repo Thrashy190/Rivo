@@ -36,7 +36,7 @@ prod-plan: $(PLANS_DIR)
 prod-apply: $(PLANS_DIR)/prod.tfplan
 	terraform apply -auto-approve $(PLANS_DIR)/prod.tfplan
 
-# prod-destroy corre manualmente (sin auto-approve): terraform destroy environments/prod.tfvars
+# prod-destroy is not automated: run `terraform destroy -var-file=environments/prod.tfvars` by hand.
 
 # ── S3 + CloudFront ───────────────────────────────────────────────────────────
 

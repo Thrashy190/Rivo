@@ -61,9 +61,9 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		return apigateway.Error(err), nil
 	}
 
-	// Cognito primero: si falla, la fila queda y el borrado se puede
-	// reintentar. Al revés quedaría un usuario capaz de autenticarse pero
-	// sin permisos, que es un estado más confuso de diagnosticar.
+	// Cognito first: if it fails, the row stays and the deletion can be retried.
+	// The other way round would leave a user able to authenticate with no
+	// permissions, which is a more confusing state to diagnose.
 	_, err = cognitoClient.AdminDeleteUser(ctx, &cognitoidentityprovider.AdminDeleteUserInput{
 		UserPoolId: aws.String(userPoolID),
 		Username:   aws.String(target.Email),

@@ -31,11 +31,11 @@ module "cognito" {
   admin_email  = var.admin_email
 }
 
-# Siembra al admin inicial en la tabla users: Cognito dice quién es, pero
-# los permisos salen de esta tabla, así que sin esta fila el admin entraría
-# sin acceso a nada. El rol admin ya implica todos los permisos ("*").
-# ignore_changes para que Terraform no pise cambios hechos después desde la
-# propia API (ej. si el admin se cambia el rol o se deshabilita).
+# Seed the initial admin in the users table: Cognito says who they are, but
+# permissions come from this table, so without this row the admin would get
+# no access. The admin role already implies every permission ("*").
+# ignore_changes keeps Terraform from overwriting later changes made through
+# the API itself (for example, if the admin's role changes or they are disabled).
 resource "aws_dynamodb_table_item" "admin_user" {
   table_name = module.users_table.name
   hash_key   = "id"
@@ -106,8 +106,8 @@ module "lambda_new_password" {
 
 # -- Lambdas: users --
 #
-# Todos leen la tabla users porque ahí está el permiso que exige el handler
-# (ver shared/authz), no solo porque operen sobre usuarios.
+# All of them read the users table because it holds the permission the handler
+# requires (see shared/authz), not only because they operate on users.
 
 module "lambda_create_user" {
   source              = "./modules/lambda/golang"
@@ -417,8 +417,8 @@ module "users_resource" {
   path_part   = "users"
 }
 
-# /users/me tiene que ser su propio resource (literal) y no caer en
-# /users/{id}: API Gateway resuelve primero el segmento literal.
+# /users/me has to be its own literal resource and not fall into
+# /users/{id}: API Gateway resolves the literal segment first.
 module "users_me_resource" {
   source      = "./modules/api/api-resource"
   rest_api_id = module.rest_api.id
@@ -446,7 +446,7 @@ locals {
       }
     }
 
-    # Públicas por necesidad: corren antes de que el usuario tenga token.
+    # Public by necessity: they run before the user has a token.
     login = {
       resource_id = module.auth_login_resource.id
       http_method = "POST"
@@ -562,7 +562,7 @@ locals {
   }
 }
 
-# --- Puente hacia modules/api ---
+# --- Bridge to modules/api ---
 
 module "api" {
   source            = "./modules/api"

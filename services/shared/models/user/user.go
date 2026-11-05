@@ -11,8 +11,8 @@ const (
 	RoleViewer   Role = "viewer"
 )
 
-// Tabla de permisos: toda acción protegida de la API exige uno de estos.
-// Cognito solo dice quién es el usuario; qué puede hacer sale de acá.
+// Permission table: every protected API action requires one of these.
+// Cognito only says who the user is; what they can do comes from here.
 const (
 	PermProjectsRead    = "projects:read"
 	PermProjectsCreate  = "projects:create"
@@ -22,7 +22,7 @@ const (
 	PermUsersRead       = "users:read"
 	PermUsersManage     = "users:manage"
 
-	// PermAll es el comodín que usa el rol admin.
+	// PermAll is the wildcard used by the admin role.
 	PermAll = "*"
 )
 
@@ -31,10 +31,10 @@ const (
 	StatusDisabled = "disabled"
 )
 
-// RolePermissions son los permisos que trae cada rol. Es el default:
-// un usuario puede traer su propia lista en Permissions y esa gana
-// (ver EffectivePermissions), que es el caso de "editor pero sin poder
-// crear proyectos".
+// RolePermissions are the permissions each role brings by default. A user
+// can carry their own list in Permissions, and that list wins (see
+// EffectivePermissions), which covers cases like "editor who cannot
+// create projects".
 var RolePermissions = map[Role][]string{
 	RoleAdmin: {PermAll},
 	RoleEditor: {
@@ -69,8 +69,8 @@ type User struct {
 	UpdatedAt   int64    `dynamodbav:"updated_at" json:"updated_at"`
 }
 
-// EffectivePermissions resuelve los permisos reales del usuario: la lista
-// explícita si la tiene, y si no los del rol.
+// EffectivePermissions resolves the user's real permissions: the explicit
+// list if there is one, otherwise the role's.
 func (u *User) EffectivePermissions() []string {
 	if len(u.Permissions) > 0 {
 		return u.Permissions
@@ -100,18 +100,18 @@ type CreateUserInput struct {
 	Permissions []string `json:"permissions"`
 }
 
-// UpdateUserInput usa punteros para distinguir "no vino" (nil) de "vino
-// vacío", igual que UpdateProjectInput: mandar "permissions": [] borra el
-// override y devuelve al usuario a los permisos de su rol.
+// UpdateUserInput uses pointers to tell "not sent" (nil) from "sent empty",
+// like UpdateProjectInput: sending "permissions": [] clears the override and
+// returns the user to their role's permissions.
 type UpdateUserInput struct {
 	Role        *Role     `json:"role"`
 	Permissions *[]string `json:"permissions"`
 	Status      *string   `json:"status"`
 }
 
-// Profile es lo que devuelve GET /users/me: el usuario más sus permisos
-// ya resueltos, para que el frontend no tenga que replicar la tabla de
-// roles para decidir qué mostrar.
+// Profile is what GET /users/me returns: the user plus their resolved
+// permissions, so the frontend does not have to replicate the role table to
+// decide what to show.
 type Profile struct {
 	User
 	EffectivePermissions []string `json:"effectivePermissions"`

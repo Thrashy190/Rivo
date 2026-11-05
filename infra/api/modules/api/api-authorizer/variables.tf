@@ -1,11 +1,11 @@
 variable "rest_api_id" {
   type        = string
-  description = "ID de la REST API a la que se engancha el authorizer"
+  description = "ID of the REST API the authorizer attaches to"
 }
 
 variable "user_pool_arn" {
   type        = string
-  description = "ARN del user pool de Cognito que valida los tokens"
+  description = "ARN of the Cognito user pool that validates tokens"
 }
 
 variable "environment" {

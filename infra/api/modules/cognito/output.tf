@@ -10,8 +10,8 @@ output "user_pool_arn" {
   value = aws_cognito_user_pool.this.arn
 }
 
-# El sub del admin es la clave con la que se siembra su fila en la tabla
-# users (es lo que llega en los claims del token).
+# The admin's sub is the key used to seed their row in the users table
+# (it is what arrives in the token claims).
 output "admin_sub" {
   value = aws_cognito_user.admin.sub
 }

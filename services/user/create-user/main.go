@@ -45,11 +45,11 @@ func init() {
 	userPoolID = os.Getenv("USER_POOL_ID")
 }
 
-// Única vía de alta de usuarios: el signup público está cerrado
-// (allow_admin_create_user_only en el user pool), así que un usuario entra
-// solo si alguien con users:manage lo crea acá. Cognito le manda la
-// password temporal por mail y el primer login pasa por el challenge
-// NEW_PASSWORD_REQUIRED.
+// The only way to add users: public signup is closed
+// (allow_admin_create_user_only in the user pool), so a user only gets in if
+// someone with users:manage creates them here. Cognito emails the temporary
+// password and the first login goes through the NEW_PASSWORD_REQUIRED
+// challenge.
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	if _, err := authz.Require(ctx, users, req, user.PermUsersManage); err != nil {
 		return apigateway.Error(err), nil
@@ -106,8 +106,8 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	return apigateway.Success(http.StatusCreated, u), nil
 }
 
-// El sub de Cognito es la clave con la que se guarda el usuario, porque es
-// lo que después llega en los claims del token.
+// Cognito's sub is the key the user is stored under, because it is what later
+// arrives in the token claims.
 func subOf(created *cognitotypes.UserType) string {
 	if created == nil {
 		return ""
