@@ -145,15 +145,10 @@ export function UsersIcon({ className = "w-4 h-4" }: { className?: string }) {
 
 export function RivoLogo({ className = "w-8 h-8" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect x="2" y="2" width="12" height="12" rx="2.5" fill="#6366f1" />
-      <rect x="18" y="2" width="12" height="12" rx="2.5" fill="#6366f1" fillOpacity="0.55" />
-      <rect x="2" y="18" width="12" height="12" rx="2.5" fill="#6366f1" fillOpacity="0.55" />
-      <rect x="18" y="18" width="12" height="12" rx="2.5" fill="#6366f1" fillOpacity="0.25" />
-      <line x1="14" y1="8" x2="18" y2="8" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" />
-      <line x1="8" y1="14" x2="8" y2="18" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" />
-      <line x1="24" y1="14" x2="24" y2="18" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" />
-      <line x1="14" y1="24" x2="18" y2="24" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" />
+    <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
+      <polygon fill="#c4b5fd" points="24,4 41,14 24,24 7,14"/>
+      <polygon fill="#863bff" points="41,14 41,34 24,44 24,24"/>
+      <polygon fill="#5b21b6" points="7,14 24,24 24,44 7,34"/>
     </svg>
   );
 }

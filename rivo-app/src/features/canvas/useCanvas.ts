@@ -16,6 +16,10 @@ export interface CanvasEdge {
   id: string;
   sourceId: string;
   targetId: string;
+  config?: {
+    method?: string;
+    path?:   string;
+  };
 }
 
 export interface Viewport {
@@ -79,26 +83,40 @@ let nodeCounter = 0;
 export function useCanvas() {
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [edges, setEdges] = useState<CanvasEdge[]>([]);
+
+  // Hydrate canvas from a saved model (e.g. loaded from API).
+  // Also syncs nodeCounter so new nodes don't collide with existing IDs.
+  const resetCanvas = useCallback((newNodes: CanvasNode[], newEdges: CanvasEdge[]) => {
+    for (const n of newNodes) {
+      const num = parseInt(n.id.split("-").pop() ?? "0", 10);
+      if (!isNaN(num) && num > nodeCounter) nodeCounter = num;
+    }
+    setNodes(newNodes);
+    setEdges(newEdges);
+  }, []);
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
 
   const addNode = useCallback(
-    (serviceId: string, position: { x: number; y: number }) => {
+    (
+      serviceId: string,
+      position: { x: number; y: number },
+      externalConfig?: Record<string, unknown>,
+      externalSize?: { width: number; height: number },
+    ) => {
       nodeCounter += 1;
       const id = `${serviceId}-${nodeCounter}`;
       const isContainer = CONTAINER_TYPES.has(serviceId);
+      // externalConfig (from API) takes precedence over static DEFAULT_CONFIGS
+      const baseConfig = externalConfig ?? DEFAULT_CONFIGS[serviceId] ?? {};
+      const baseSize   = externalSize   ?? (isContainer ? DEFAULT_SIZES[serviceId] : undefined);
       const node: CanvasNode = {
         id,
         type: serviceId,
         label: SERVICE_LABELS[serviceId] ?? serviceId,
         position,
-        config: {
-          name: `${serviceId}-${nodeCounter}`,
-          ...(DEFAULT_CONFIGS[serviceId] ?? {}),
-        },
+        config: { name: `${serviceId}-${nodeCounter}`, ...baseConfig },
         variant: isContainer ? "container" : "service",
-        ...(isContainer && DEFAULT_SIZES[serviceId]
-          ? { size: DEFAULT_SIZES[serviceId] }
-          : {}),
+        ...(baseSize ? { size: baseSize } : {}),
       };
       setNodes((prev) => [...prev, node]);
     },
@@ -184,6 +202,15 @@ export function useCanvas() {
     setEdges((prev) => prev.filter((e) => e.id !== edgeId));
   }, []);
 
+  const updateEdgeConfig = useCallback(
+    (edgeId: string, config: CanvasEdge["config"]) => {
+      setEdges((prev) =>
+        prev.map((e) => (e.id === edgeId ? { ...e, config } : e))
+      );
+    },
+    []
+  );
+
   const toJSON = useCallback(
     (): InfraModel => ({
       version: "1",
@@ -199,6 +226,7 @@ export function useCanvas() {
         source: e.sourceId,
         target: e.targetId,
         type: "depends_on" as const,
+        ...(e.config ? { config: e.config } : {}),
       })),
     }),
     [nodes, edges]
@@ -217,6 +245,8 @@ export function useCanvas() {
     attachNode,
     addEdge,
     removeEdge,
+    updateEdgeConfig,
     toJSON,
+    resetCanvas,
   };
 }

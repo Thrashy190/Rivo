@@ -2,7 +2,7 @@
 // In production these schemas come from GET /api/service-types.
 // The frontend only renders — all definitions live server-side.
 
-export type FieldType = "text" | "number" | "select" | "boolean";
+export type FieldType = "text" | "number" | "select" | "boolean" | "color";
 
 export interface ConfigField {
   type: FieldType;
@@ -177,6 +177,7 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
         "ca-central-1", "sa-east-1",
       ],
     },
+    borderColor: { type: "color", label: "Border color" },
   },
 
   vpc: {
@@ -189,6 +190,7 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
       label: "Instance tenancy",
       options: ["default", "dedicated"],
     },
+    borderColor: { type: "color", label: "Border color" },
   },
 
   subnet: {
@@ -211,5 +213,126 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
       options: ["public", "private", "isolated"],
     },
     mapPublicIpOnLaunch: { type: "boolean", label: "Map public IP on launch" },
+  },
+
+  s3: {
+    name: { type: "text", label: "Bucket name", required: true, placeholder: "my-bucket" },
+    versioning: { type: "boolean", label: "Versioning" },
+    encryption: {
+      type: "select",
+      label: "Encryption",
+      options: ["AES256", "aws:kms", "None"],
+    },
+    publicAccess: { type: "boolean", label: "Block public access" },
+  },
+
+  ec2: {
+    name: { type: "text", label: "Instance name", required: true, placeholder: "my-instance" },
+    instanceType: {
+      type: "select",
+      label: "Instance type",
+      options: ["t3.micro", "t3.small", "t3.medium", "t3.large", "m5.large", "m5.xlarge", "c5.large", "r5.large"],
+    },
+    ami: { type: "text", label: "AMI ID", placeholder: "ami-xxxxxxxx" },
+    keyPair: { type: "text", label: "Key pair name" },
+    ebsSize: { type: "number", label: "Root volume (GB)", min: 8, max: 16384 },
+  },
+
+  ecs: {
+    name: { type: "text", label: "Service name", required: true, placeholder: "my-service" },
+    launchType: { type: "select", label: "Launch type", options: ["FARGATE", "EC2"] },
+    cpu: { type: "select", label: "CPU (vCPU)", options: ["256", "512", "1024", "2048", "4096"] },
+    memory: { type: "select", label: "Memory (MB)", options: ["512", "1024", "2048", "4096", "8192"] },
+    desiredCount: { type: "number", label: "Desired count", min: 0 },
+  },
+
+  "load-balancer": {
+    name: { type: "text", label: "LB name", required: true, placeholder: "my-lb" },
+    type: { type: "select", label: "LB type", options: ["application", "network", "gateway"] },
+    scheme: { type: "select", label: "Scheme", options: ["internet-facing", "internal"] },
+    deletionProtection: { type: "boolean", label: "Deletion protection" },
+  },
+
+  cloudfront: {
+    name: { type: "text", label: "Distribution name", placeholder: "my-cdn" },
+    priceClass: {
+      type: "select",
+      label: "Price class",
+      options: ["PriceClass_100", "PriceClass_200", "PriceClass_All"],
+    },
+    httpVersion: { type: "select", label: "HTTP version", options: ["http2", "http1.1", "http2and3"] },
+    defaultRootObject: { type: "text", label: "Default root object", placeholder: "index.html" },
+    compress: { type: "boolean", label: "Compress objects automatically" },
+  },
+
+  rds: {
+    name: { type: "text", label: "DB identifier", required: true, placeholder: "my-database" },
+    engine: {
+      type: "select",
+      label: "Engine",
+      options: ["postgres", "mysql", "mariadb", "oracle-ee", "sqlserver-ex"],
+    },
+    instanceClass: {
+      type: "select",
+      label: "Instance class",
+      options: ["db.t3.micro", "db.t3.small", "db.t3.medium", "db.r5.large", "db.r5.xlarge"],
+    },
+    storageGb: { type: "number", label: "Storage (GB)", min: 20, max: 65536 },
+    multiAZ: { type: "boolean", label: "Multi-AZ" },
+    backupRetention: { type: "number", label: "Backup retention (days)", min: 0, max: 35 },
+  },
+
+  "elastic-cache": {
+    name: { type: "text", label: "Cluster name", required: true, placeholder: "my-cache" },
+    engine: { type: "select", label: "Engine", options: ["redis", "memcached"] },
+    nodeType: {
+      type: "select",
+      label: "Node type",
+      options: ["cache.t3.micro", "cache.t3.small", "cache.t3.medium", "cache.r6g.large"],
+    },
+    numNodes: { type: "number", label: "Number of nodes", min: 1, max: 6 },
+  },
+
+  "iam-role": {
+    roleName: { type: "text", label: "Role name", required: true, placeholder: "my-role" },
+    trustPolicy: {
+      type: "text",
+      label: "Trusted service",
+      placeholder: "lambda.amazonaws.com",
+      hint: "Service principal that can assume this role",
+    },
+  },
+
+  "secrets-manager": {
+    name: { type: "text", label: "Secret name", required: true, placeholder: "my-secret" },
+    description: { type: "text", label: "Description" },
+    rotationEnabled: { type: "boolean", label: "Auto rotation" },
+  },
+
+  cloudwatch: {
+    logGroupName: { type: "text", label: "Log group name", placeholder: "/aws/lambda/my-function" },
+    retentionDays: {
+      type: "select",
+      label: "Retention",
+      options: ["1", "3", "7", "14", "30", "60", "90", "180", "365", "never"],
+    },
+    alarmEnabled: { type: "boolean", label: "Create alarm" },
+  },
+
+  sqs: {
+    name: { type: "text", label: "Queue name", required: true, placeholder: "my-queue" },
+    fifo: { type: "boolean", label: "FIFO queue" },
+    messageRetentionPeriod: { type: "number", label: "Retention (s)", min: 60, max: 1209600, hint: "60s to 14 days" },
+    visibilityTimeout: { type: "number", label: "Visibility timeout (s)", min: 0, max: 43200 },
+  },
+
+  sns: {
+    name: { type: "text", label: "Topic name", required: true, placeholder: "my-topic" },
+    protocol: {
+      type: "select",
+      label: "Protocol",
+      options: ["email", "sqs", "lambda", "http", "https"],
+    },
+    fifo: { type: "boolean", label: "FIFO topic" },
   },
 };

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import { Button } from "../../components/Button/Button";
 import { ProjectCard } from "../projects/ProjectCard";
+import { Skeleton } from "../../components/Skeleton/Skeleton";
 import { PlusIcon, FolderIcon, SearchIcon } from "../../components/icons";
 import { useState } from "react";
 import type { Project } from "../projects/ProjectCard";
@@ -9,9 +10,10 @@ interface SpaceViewProps {
   spaceId: string;
   spaceName: string;
   projects: Project[];
+  loading?: boolean;
 }
 
-export function SpaceView({ spaceId: _spaceId, spaceName, projects }: SpaceViewProps) {
+export function SpaceView({ spaceId: _spaceId, spaceName, projects, loading = false }: SpaceViewProps) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
@@ -30,10 +32,16 @@ export function SpaceView({ spaceId: _spaceId, spaceName, projects }: SpaceViewP
             <div className="w-6 h-6 rounded bg-indigo-600/20 border border-indigo-600/30 flex items-center justify-center">
               <FolderIcon className="w-3.5 h-3.5 text-indigo-400" />
             </div>
-            <h1 className="text-lg font-semibold tracking-tight">{spaceName}</h1>
+            <h1 className="text-lg font-semibold tracking-tight">
+            {spaceName || <Skeleton className="h-5 w-32 inline-block" />}
+          </h1>
           </div>
           <p className="text-xs text-zinc-500">
-            {projects.length === 0 ? "No projects in this space" : `${projects.length} project${projects.length !== 1 ? "s" : ""}`}
+            {loading
+              ? <Skeleton className="h-3 w-24 inline-block" />
+              : projects.length === 0
+                ? "No projects in this space"
+                : `${projects.length} project${projects.length !== 1 ? "s" : ""}`}
           </p>
         </div>
         <Button size="sm" onClick={() => navigate("/projects/new")}>
@@ -59,7 +67,26 @@ export function SpaceView({ spaceId: _spaceId, spaceName, projects }: SpaceViewP
       </div>
 
       {/* Grid */}
-      {filtered.length > 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-card/50 border border-edge/60 rounded-xl p-5 space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-2 w-2 rounded-full" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+              <div className="pt-4 border-t border-edge/60 flex justify-between">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((project) => (
             <ProjectCard key={project.id} project={project} />

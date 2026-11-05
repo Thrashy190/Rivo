@@ -1,73 +1,106 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "react-router";
 import { useCanvas } from "../features/canvas/useCanvas";
-import { CanvasTopBar } from "../features/canvas/CanvasTopBar";
+import { useServices } from "../features/canvas/useServices";
+import { CanvasTopBar, type CanvasView } from "../features/canvas/CanvasTopBar";
 import { IconSidebar } from "../features/canvas/IconSidebar";
 import { CanvasArea } from "../features/canvas/CanvasArea";
 import { ServiceConfigPanel } from "../features/canvas/ServiceConfigPanel";
+import { EdgeConfigPanel } from "../features/canvas/EdgeConfigPanel";
+import { resolveEdgeKind } from "../features/canvas/edgeKinds";
 import { RightPanel } from "../features/canvas/RightPanel/RightPanel";
 import { ServicesModal } from "../features/canvas/modals/ServicesModal";
 import { CodeModal } from "../features/canvas/modals/CodeModal";
 import { ZipModal } from "../features/canvas/modals/ZipModal";
-
-const PROJECT_NAMES: Record<string, string> = {
-  proj_01: "production-vpc",
-  proj_02: "staging-cluster",
-  proj_03: "data-pipeline",
-  proj_04: "legacy-migration",
-  proj_05: "cdn-layer",
-  proj_06: "monitoring-stack",
-};
-
-// Services that open the right tools panel
-const RIGHT_PANEL_SERVICES = new Set(["lambda", "api-gateway"]);
+import { DeploysView } from "../features/canvas/views/DeploysView";
+import { projectsService } from "../services/projects";
 
 type LambdaModal = "code" | "zip" | null;
+
+function snapshotCanvas(nodes: unknown, edges: unknown): string {
+  return JSON.stringify({ nodes, edges });
+}
 
 export function CanvasPage() {
   const { id = "" } = useParams<{ id: string }>();
   const location = useLocation();
   const projectName =
-    (location.state as { projectName?: string } | null)?.projectName ??
-    PROJECT_NAMES[id] ??
-    id;
+    (location.state as { projectName?: string } | null)?.projectName ?? id;
 
   const {
-    nodes,
-    edges,
-    viewport,
-    setViewport,
-    addNode,
-    moveNode,
-    resizeNode,
-    removeNode,
-    updateNodeConfig,
-    attachNode,
-    addEdge,
-    removeEdge,
-    toJSON,
+    nodes, edges, viewport, setViewport,
+    addNode, moveNode, resizeNode, removeNode,
+    updateNodeConfig, updateEdgeConfig, attachNode, addEdge, removeEdge,
+    toJSON, resetCanvas,
   } = useCanvas();
 
-  // Left icon strip — services panel open/close
-  const [servicesOpen, setServicesOpen] = useState(false);
+  const { byId: serviceById } = useServices();
 
-  // Bottom config panel (all services, including containers)
-  const [configNodeId, setConfigNodeId] = useState<string | null>(null);
+  // ── Load project on mount ─────────────────────────────────────────────────
+  const bootstrapped = useRef(false);
+  useEffect(() => {
+    if (!id || bootstrapped.current) return;
+    bootstrapped.current = true;
+
+    projectsService.get(id).then(({ project }) => {
+      const model = project.model;
+      if (model?.nodes?.length > 0) {
+        resetCanvas(model.nodes, model.edges ?? []);
+        setSavedSnapshot(snapshotCanvas(model.nodes, model.edges ?? []));
+      }
+    }).catch(console.error);
+  }, [id]);
+
+  // ── Change detection ──────────────────────────────────────────────────────
+  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotCanvas([], []));
+  const [isSaving, setIsSaving] = useState(false);
+
+  const currentSnapshot = snapshotCanvas(nodes, edges);
+  const isDirty = currentSnapshot !== savedSnapshot;
+
+  const handleSave = async () => {
+    if (!isDirty || isSaving) return;
+    setIsSaving(true);
+    try {
+      await projectsService.update(id, nodes, edges);
+      setSavedSnapshot(currentSnapshot);
+    } catch (err) {
+      console.error("Save failed", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ── Services catalog wrapper ──────────────────────────────────────────────
+  const addNodeFromCatalog = (serviceId: string, position: { x: number; y: number }) => {
+    const def = serviceById.get(serviceId);
+    addNode(serviceId, position, def?.defaultConfig, def?.defaultSize ?? undefined);
+  };
+
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const [activeView,    setActiveView]    = useState<CanvasView>("canvas");
+  const [animated,      setAnimated]      = useState(
+    () => localStorage.getItem("rivo_canvas_animated") === "true"
+  );
+  const [servicesOpen,  setServicesOpen]  = useState(false);
+  const [configNodeId,  setConfigNodeId]  = useState<string | null>(null);
+  const [rightNodeId,   setRightNodeId]   = useState<string | null>(null);
+  const [lambdaModal,   setLambdaModal]   = useState<LambdaModal>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+
+  const RIGHT_PANEL_SERVICES = new Set(["lambda", "api-gateway"]);
+
   const configNode = nodes.find((n) => n.id === configNodeId) ?? null;
+  const rightNode  = nodes.find((n) => n.id === rightNodeId)  ?? null;
 
-  // Right tools panel (lambda, api-gateway)
-  const [rightNodeId, setRightNodeId] = useState<string | null>(null);
-  const rightNode = nodes.find((n) => n.id === rightNodeId) ?? null;
-
-  // Fullscreen modals launched from the Lambda right panel
-  const [lambdaModal, setLambdaModal] = useState<LambdaModal>(null);
+  const selectedEdge = edges.find((e) => e.id === selectedEdgeId) ?? null;
+  const edgeKind     = resolveEdgeKind(selectedEdge, nodes);
 
   const handleNodeClick = (nodeId: string) => {
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return;
-
+    setSelectedEdgeId(null);
     setConfigNodeId((prev) => (prev === nodeId ? null : nodeId));
-
     if (RIGHT_PANEL_SERVICES.has(node.type)) {
       setRightNodeId((prev) => (prev === nodeId ? null : nodeId));
     } else {
@@ -76,7 +109,6 @@ export function CanvasPage() {
   };
 
   const handleContainerClick = (nodeId: string) => {
-    // Containers open the config panel but not the right panel
     setConfigNodeId((prev) => (prev === nodeId ? null : nodeId));
     setRightNodeId(null);
   };
@@ -84,11 +116,7 @@ export function CanvasPage() {
   const handleAddService = (serviceId: string) => {
     const x = (-viewport.x + 400) / viewport.zoom + Math.random() * 80 - 40;
     const y = (-viewport.y + 240) / viewport.zoom + Math.random() * 80 - 40;
-    addNode(serviceId, { x, y });
-  };
-
-  const handleZoomChange = (zoom: number) => {
-    setViewport((prev) => ({ ...prev, zoom }));
+    addNodeFromCatalog(serviceId, { x, y });
   };
 
   return (
@@ -97,57 +125,102 @@ export function CanvasPage() {
         projectName={projectName}
         nodeCount={nodes.length}
         viewport={viewport}
-        onZoomChange={handleZoomChange}
+        isDirty={isDirty}
+        isSaving={isSaving}
+        activeView={activeView}
+        animated={animated}
+        onViewChange={setActiveView}
+        onToggleAnimations={() => setAnimated((v) => {
+          const next = !v;
+          localStorage.setItem("rivo_canvas_animated", String(next));
+          return next;
+        })}
+        onZoomChange={(zoom) => setViewport((prev) => ({ ...prev, zoom }))}
         onExportJSON={toJSON}
+        onSave={handleSave}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left icon strip — services only */}
-        <IconSidebar
-          servicesOpen={servicesOpen}
-          onToggleServices={() => setServicesOpen((v) => !v)}
-        />
-
-        {/* Canvas + bottom config panel */}
-        <div className="relative flex flex-col flex-1 overflow-hidden">
-          <CanvasArea
-            nodes={nodes}
-            edges={edges}
-            viewport={viewport}
-            selectedNodeId={configNodeId}
-            onAddNode={addNode}
-            onMoveNode={moveNode}
-            onResizeNode={resizeNode}
-            onRemoveNode={removeNode}
-            onRemoveEdge={removeEdge}
-            onAddEdge={addEdge}
-            onAttachNode={attachNode}
-            onViewportChange={setViewport}
-            onNodeClick={handleNodeClick}
-            onContainerClick={handleContainerClick}
+      {/* ── Canvas view ──────────────────────────────────────────────────── */}
+      {activeView === "canvas" && (
+        <div className="flex flex-1 overflow-hidden">
+          <IconSidebar
+            servicesOpen={servicesOpen}
+            onToggleServices={() => setServicesOpen((v) => !v)}
           />
 
-          {configNode && (
-            <ServiceConfigPanel
-              node={configNode}
-              onClose={() => setConfigNodeId(null)}
-              onUpdate={updateNodeConfig}
+          <div className="relative flex flex-col flex-1 overflow-hidden">
+            <CanvasArea
+              nodes={nodes}
+              edges={edges}
+              viewport={viewport}
+              selectedNodeId={configNodeId}
+              onAddNode={addNodeFromCatalog}
+              onMoveNode={moveNode}
+              onResizeNode={resizeNode}
+              onRemoveNode={removeNode}
+              onRemoveEdge={removeEdge}
+              onAddEdge={addEdge}
+              onAttachNode={attachNode}
+              animated={animated}
+              onViewportChange={setViewport}
+              onNodeClick={handleNodeClick}
+              onContainerClick={handleContainerClick}
+              onEdgeSelect={(id) => {
+                setSelectedEdgeId(id);
+                if (id) setConfigNodeId(null);
+              }}
+              onCanvasClick={() => {
+                setConfigNodeId(null);
+                setSelectedEdgeId(null);
+                setRightNodeId(null);
+              }}
+            />
+
+            {configNode && edgeKind.kind === "none" && (
+              <ServiceConfigPanel
+                node={configNode}
+                edges={edges}
+                allNodes={nodes}
+                onClose={() => setConfigNodeId(null)}
+                onUpdate={updateNodeConfig}
+                onEdgeClick={(edgeId) => {
+                  setConfigNodeId(null);
+                  setSelectedEdgeId(edgeId);
+                }}
+              />
+            )}
+
+            {edgeKind.kind === "route" && selectedEdge && (
+              <EdgeConfigPanel
+                edge={selectedEdge}
+                apiGwNode={edgeKind.apiGw}
+                lambdaNode={edgeKind.lambda}
+                onClose={() => setSelectedEdgeId(null)}
+                onUpdate={updateEdgeConfig}
+              />
+            )}
+          </div>
+
+          {rightNode && (
+            <RightPanel
+              node={rightNode}
+              edges={edges}
+              allNodes={nodes}
+              onClose={() => setRightNodeId(null)}
+              onOpenCode={() => setLambdaModal("code")}
+              onOpenZip={() => setLambdaModal("zip")}
             />
           )}
         </div>
+      )}
 
-        {/* Right tools panel */}
-        {rightNode && (
-          <RightPanel
-            node={rightNode}
-            onClose={() => setRightNodeId(null)}
-            onOpenCode={() => setLambdaModal("code")}
-            onOpenZip={() => setLambdaModal("zip")}
-          />
-        )}
-      </div>
+      {/* ── Deploys view ─────────────────────────────────────────────────── */}
+      {activeView === "deploys" && (
+        <div className="flex-1 overflow-hidden">
+          <DeploysView projectName={projectName} />
+        </div>
+      )}
 
-      {/* Services floating panel (no backdrop — drag-and-drop works) */}
       {servicesOpen && (
         <ServicesModal
           onClose={() => setServicesOpen(false)}
@@ -155,7 +228,6 @@ export function CanvasPage() {
         />
       )}
 
-      {/* Lambda fullscreen modals (launched from right panel) */}
       {lambdaModal === "code" && rightNode?.type === "lambda" && (
         <CodeModal node={rightNode} onClose={() => setLambdaModal(null)} />
       )}

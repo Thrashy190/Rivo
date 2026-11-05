@@ -3,18 +3,36 @@ import { Link, useNavigate } from "react-router";
 import { Button } from "../../components/Button/Button";
 import { Input } from "../../components/Input/Input";
 import { GitHubIcon, GoogleIcon, EyeIcon, EyeOffIcon } from "../../components/icons";
+import { useAuth } from "../../context/AuthContext";
+import { useSnackbar } from "../../context/SnackbarContext";
 
 export function RegisterForm() {
   const navigate = useNavigate();
+  const { register } = useAuth();
+  const { push } = useSnackbar();
+
+  const [name,         setName]         = useState("");
+  const [email,        setEmail]        = useState("");
+  const [password,     setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading,      setLoading]      = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    navigate("/projects");
-  };
-
-  const handleOAuth = () => {
-    navigate("/projects");
+    if (password.length < 8) {
+      push("Password must be at least 8 characters.", "warning");
+      return;
+    }
+    setLoading(true);
+    try {
+      await register(email, password, name);
+      push("Account created! Check your email for a confirmation code.", "success");
+      navigate(`/auth/confirm?email=${encodeURIComponent(email)}`);
+    } catch (err) {
+      push(err instanceof Error ? err.message : "Registration failed.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,38 +42,42 @@ export function RegisterForm() {
         <p className="text-sm text-zinc-500 mt-1">Start building infrastructure visually</p>
       </div>
 
-      {/* OAuth */}
+      {/* OAuth — not wired to Cognito yet */}
       <div className="flex flex-col gap-2.5 mb-6">
-        <Button variant="secondary" fullWidth onClick={handleOAuth}>
+        <Button variant="secondary" fullWidth disabled>
           <GitHubIcon className="w-4 h-4" />
           Continue with GitHub
         </Button>
-        <Button variant="secondary" fullWidth onClick={handleOAuth}>
+        <Button variant="secondary" fullWidth disabled>
           <GoogleIcon className="w-4 h-4" />
           Continue with Google
         </Button>
       </div>
 
-      {/* Divider */}
       <div className="flex items-center gap-4 mb-6">
         <div className="flex-1 h-px bg-zinc-800" />
         <span className="text-xs text-zinc-600">or</span>
         <div className="flex-1 h-px bg-zinc-800" />
       </div>
 
-      {/* Form */}
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <Input
           label="Full name"
           type="text"
           placeholder="Jane Smith"
           autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
         />
         <Input
           label="Work email"
           type="email"
           placeholder="you@company.com"
           autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
         />
         <Input
           label="Password"
@@ -63,6 +85,9 @@ export function RegisterForm() {
           placeholder="••••••••"
           autoComplete="new-password"
           hint="Minimum 8 characters"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
           rightElement={
             <button
               type="button"
@@ -75,8 +100,8 @@ export function RegisterForm() {
           }
         />
 
-        <Button type="submit" fullWidth className="mt-2">
-          Create account
+        <Button type="submit" fullWidth className="mt-2" disabled={loading}>
+          {loading ? "Creating account…" : "Create account"}
         </Button>
 
         <p className="text-xs text-zinc-600 text-center leading-relaxed">

@@ -3,14 +3,36 @@ import { useNavigate } from "react-router";
 import { Button } from "../../components/Button/Button";
 import { Input } from "../../components/Input/Input";
 import { ProjectCard } from "./ProjectCard";
+import { Skeleton } from "../../components/Skeleton/Skeleton";
 import { PlusIcon, SearchIcon, FolderIcon } from "../../components/icons";
 import type { Project } from "./ProjectCard";
 
 interface ProjectsGridProps {
   projects: Project[];
+  loading?: boolean;
 }
 
-export function ProjectsGrid({ projects }: ProjectsGridProps) {
+function ProjectCardSkeleton() {
+  return (
+    <div className="bg-card/50 border border-edge/60 rounded-xl p-5 space-y-4">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-2/3" />
+      </div>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-2 w-2 rounded-full" />
+        <Skeleton className="h-3 w-16" />
+      </div>
+      <div className="pt-4 border-t border-edge/60 flex justify-between">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+    </div>
+  );
+}
+
+export function ProjectsGrid({ projects, loading = false }: ProjectsGridProps) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
@@ -26,7 +48,9 @@ export function ProjectsGrid({ projects }: ProjectsGridProps) {
         <div>
           <h2 className="text-base font-semibold tracking-tight">All projects</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {projects.length === 0 ? "No projects yet" : `${projects.length} projects`}
+            {loading ? (
+              <Skeleton className="h-3 w-20 inline-block" />
+            ) : projects.length === 0 ? "No projects yet" : `${projects.length} projects`}
           </p>
         </div>
         <Button size="sm" onClick={() => navigate("/projects/new")}>
@@ -44,7 +68,13 @@ export function ProjectsGrid({ projects }: ProjectsGridProps) {
         />
       </div>
 
-      {filtered.length > 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ProjectCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((project) => (
             <ProjectCard key={project.id} project={project} />

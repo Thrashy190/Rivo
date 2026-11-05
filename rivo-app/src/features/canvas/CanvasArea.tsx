@@ -19,6 +19,9 @@ interface CanvasAreaProps {
   onViewportChange: (vp: Viewport | ((prev: Viewport) => Viewport)) => void;
   onNodeClick?: (nodeId: string) => void;
   onContainerClick?: (nodeId: string) => void;
+  onEdgeSelect?: (edgeId: string | null) => void;
+  onCanvasClick?: () => void;
+  animated?: boolean;
 }
 
 interface ConnectingState {
@@ -42,6 +45,9 @@ export function CanvasArea({
   onViewportChange,
   onNodeClick,
   onContainerClick,
+  onEdgeSelect,
+  onCanvasClick,
+  animated = true,
 }: CanvasAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
@@ -49,6 +55,8 @@ export function CanvasArea({
   const [isDragOver, setIsDragOver] = useState(false);
   const [connecting, setConnecting] = useState<ConnectingState | null>(null);
   const [highlightedContainerId, setHighlightedContainerId] = useState<string | null>(null);
+  const [edgeStyle, setEdgeStyle] = useState<"curved" | "straight" | "orthogonal">("curved");
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
   // Live positions ref — updated synchronously during drag so EdgeLayer
   // can read real-time positions without waiting for React re-renders.
@@ -60,6 +68,9 @@ export function CanvasArea({
   // ── Panning ──────────────────────────────────────────────────────────────
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("[data-canvas-node]")) return;
+    setSelectedEdgeId(null);
+    onEdgeSelect?.(null);
+    onCanvasClick?.();
     if (connecting) {
       setConnecting(null);
       return;
@@ -184,9 +195,13 @@ export function CanvasArea({
     onNodeClick?.(nodeId);
   };
 
-  // Escape to cancel connecting
+  // Escape to cancel connecting; Delete/Backspace to remove selected edge
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") setConnecting(null);
+    if (e.key === "Escape") { setConnecting(null); setSelectedEdgeId(null); }
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedEdgeId) {
+      onRemoveEdge(selectedEdgeId);
+      setSelectedEdgeId(null);
+    }
   };
 
   const containerNodes = nodes.filter((n) => n.variant === "container");
@@ -246,7 +261,11 @@ export function CanvasArea({
               ? { fromPos: connecting.fromPos, toPos: connecting.toPos }
               : null
           }
-          onEdgeClick={onRemoveEdge}
+          edgeStyle={edgeStyle}
+          selectedEdgeId={selectedEdgeId}
+          animated={animated}
+          onEdgeSelect={(id) => { setSelectedEdgeId(id); onEdgeSelect?.(id); }}
+          onEdgeRemove={onRemoveEdge}
         />
 
         {/* Layer 3: Service nodes */}
@@ -300,6 +319,46 @@ export function CanvasArea({
         <span>{nodes.length} nodes</span>
         <span>{edges.length} edges</span>
         <span>{Math.round(viewport.zoom * 100)}%</span>
+      </div>
+
+      {/* Edge style toggle */}
+      <div className="absolute bottom-4 left-4 flex items-center gap-1 bg-card border border-edge rounded-lg p-1 pointer-events-auto select-none">
+        <button
+          title="Curved edges"
+          onClick={() => setEdgeStyle("curved")}
+          className={[
+            "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+            edgeStyle === "curved" ? "bg-indigo-600 text-white" : "text-ink-dim hover:text-ink hover:bg-raised",
+          ].join(" ")}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 12 C5 12, 5 4, 8 4 C11 4, 11 12, 14 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+          </svg>
+        </button>
+        <button
+          title="Straight edges"
+          onClick={() => setEdgeStyle("straight")}
+          className={[
+            "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+            edgeStyle === "straight" ? "bg-indigo-600 text-white" : "text-ink-dim hover:text-ink hover:bg-raised",
+          ].join(" ")}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+        <button
+          title="Orthogonal edges"
+          onClick={() => setEdgeStyle("orthogonal")}
+          className={[
+            "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
+            edgeStyle === "orthogonal" ? "bg-indigo-600 text-white" : "text-ink-dim hover:text-ink hover:bg-raised",
+          ].join(" ")}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 8 H8 V4 H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          </svg>
+        </button>
       </div>
     </div>
   );

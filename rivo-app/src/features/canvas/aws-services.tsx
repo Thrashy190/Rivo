@@ -35,10 +35,25 @@ function RegionIcon() {
   return (
     <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
       <rect width="40" height="40" rx="8" fill="#555A60" />
-      <circle cx="20" cy="20" r="9" stroke="white" strokeWidth="1.8" />
-      <ellipse cx="20" cy="20" rx="4.5" ry="9" stroke="white" strokeWidth="1.5" />
-      <path d="M11 20h18" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M12.5 15.5h15M12.5 24.5h15" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.6" />
+      {/* Flag pole */}
+      <line x1="12" y1="10" x2="12" y2="32" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      {/* Flag body */}
+      <path
+        d="M12 11 L28 14 L12 20 Z"
+        fill="white"
+        fillOpacity="0.9"
+      />
+      {/* Flag wave highlight */}
+      <path
+        d="M12 11 L28 14 L12 20"
+        stroke="white"
+        strokeWidth="1"
+        strokeOpacity="0.5"
+        fill="none"
+        strokeLinejoin="round"
+      />
+      {/* Ground base */}
+      <line x1="9" y1="32" x2="15" y2="32" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.6" />
     </svg>
   );
 }

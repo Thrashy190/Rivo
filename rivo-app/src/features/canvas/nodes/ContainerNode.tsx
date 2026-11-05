@@ -12,22 +12,25 @@ function getServiceIcon(type: string) {
 
 const CONTAINER_STYLES: Record<
   string,
-  { border: string; bg: string; label: string }
+  { border: string; bg: string; label: string; defaultBorderColor: string }
 > = {
   region: {
-    border: "border-dashed border-2 border-zinc-500/60",
+    border: "border-dashed border-2",
     bg: "bg-zinc-800/20",
     label: "text-zinc-400",
+    defaultBorderColor: "rgba(113,113,122,0.6)", // zinc-500/60
   },
   vpc: {
-    border: "border-2 border-green-600/60",
+    border: "border-2",
     bg: "bg-green-950/20",
     label: "text-green-400",
+    defaultBorderColor: "rgba(22,163,74,0.6)", // green-600/60
   },
   subnet: {
-    border: "border border-dashed border-green-500/50",
+    border: "border border-dashed",
     bg: "bg-green-900/10",
     label: "text-green-500",
+    defaultBorderColor: "rgba(34,197,94,0.5)", // green-500/50
   },
 };
 
@@ -149,6 +152,7 @@ export function ContainerNode({
 
   const styles = CONTAINER_STYLES[node.type] ?? CONTAINER_STYLES.region;
   const icon = getServiceIcon(node.type);
+  const borderColor = (node.config.borderColor as string | undefined) || styles.defaultBorderColor;
 
   const cursors: Record<ResizeHandle, string> = {
     se: "cursor-se-resize", sw: "cursor-sw-resize",
@@ -174,7 +178,10 @@ export function ContainerNode({
       className="absolute group/container select-none"
       style={{ left: node.position.x, top: node.position.y, width, height, zIndex: 1 }}
     >
-      <div className={`relative w-full h-full rounded-xl transition-shadow ${styles.border} ${styles.bg} ${highlighted ? "ring-2 ring-indigo-500/60" : ""}`}>
+      <div
+        className={`relative w-full h-full rounded-xl transition-shadow ${styles.border} ${styles.bg} ${highlighted ? "ring-2 ring-indigo-500/60" : ""}`}
+        style={{ borderColor }}
+      >
         {/* Header bar (drag handle) */}
         <div
           onMouseDown={handleHeaderMouseDown}
@@ -190,13 +197,15 @@ export function ContainerNode({
             {String(node.config.name ?? node.id)}
           </span>
 
-          {/* Remove button */}
           <button
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => onRemove(node.id)}
-            className="ml-auto w-5 h-5 rounded-full bg-raised/60 border border-edge text-ink-dim hover:text-ink transition-colors opacity-0 group-hover/container:opacity-100 flex items-center justify-center text-xs leading-none"
+            className="ml-auto w-5 h-5 rounded-md flex items-center justify-center text-ink-dim/50 hover:text-red-400 hover:bg-red-500/10 transition-colors text-xs leading-none shrink-0"
+            title="Remove"
           >
-            ×
+            <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M1 1l10 10M11 1L1 11" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
 

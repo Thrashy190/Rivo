@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { AWS_SERVICE_CATEGORIES } from "./aws-services";
 import { SERVICE_SCHEMAS } from "./service-config-schemas";
-import type { CanvasNode } from "./useCanvas";
+import { useServices } from "./useServices";
+import type { CanvasNode, CanvasEdge } from "./useCanvas";
 
 // ─── Field renderers ──────────────────────────────────────────────────────────
 
@@ -102,6 +103,44 @@ function SelectField({
   );
 }
 
+function ColorField({
+  fieldKey: _fieldKey,
+  field,
+  value,
+  onChange,
+}: {
+  fieldKey: string;
+  field: { label: string };
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  // Fallback to #888888 for the native picker when value is empty or non-hex
+  const pickerValue = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#888888";
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[10px] font-medium text-ink-dim uppercase tracking-wider">
+        {field.label}
+      </label>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={pickerValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-8 h-8 rounded-md border border-edge bg-page cursor-pointer p-0.5"
+          style={{ colorScheme: "dark" }}
+        />
+        <input
+          type="text"
+          value={value}
+          placeholder="#6366f1"
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 h-8 rounded-md border border-edge bg-page px-2.5 text-xs font-mono text-ink placeholder:text-ink-dim focus:outline-none focus:border-raised transition-colors"
+        />
+      </div>
+    </div>
+  );
+}
+
 function BooleanField({
   fieldKey: _fieldKey,
   field,
@@ -139,19 +178,29 @@ function BooleanField({
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
+const METHOD_COLORS: Record<string, string> = {
+  GET: "text-emerald-400", POST: "text-blue-400", PUT: "text-amber-400",
+  PATCH: "text-purple-400", DELETE: "text-red-400", ANY: "text-zinc-400",
+};
+
 interface ServiceConfigPanelProps {
   node: CanvasNode;
+  edges?: CanvasEdge[];
+  allNodes?: CanvasNode[];
   onClose: () => void;
   onUpdate: (nodeId: string, config: Record<string, unknown>) => void;
+  onEdgeClick?: (edgeId: string) => void;
 }
 
-export function ServiceConfigPanel({ node, onClose, onUpdate }: ServiceConfigPanelProps) {
+export function ServiceConfigPanel({ node, edges = [], allNodes = [], onClose, onUpdate, onEdgeClick }: ServiceConfigPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [config, setConfig] = useState<Record<string, unknown>>({ ...node.config });
+  const { byId } = useServices();
 
-  const schema = SERVICE_SCHEMAS[node.type] ?? {};
+  const apiDef = byId.get(node.type);
+  const schema = apiDef?.configSchema ?? SERVICE_SCHEMAS[node.type] ?? {};
 
-  const icon = (() => {
+  const staticIcon = (() => {
     for (const cat of AWS_SERVICE_CATEGORIES) {
       const svc = cat.services.find((s) => s.id === node.type);
       if (svc) return svc.icon;
@@ -195,7 +244,13 @@ export function ServiceConfigPanel({ node, onClose, onUpdate }: ServiceConfigPan
 
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 border-b border-edge/60">
-        <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0">{icon}</div>
+        <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-card/60 flex items-center justify-center">
+          {apiDef?.iconUrl ? (
+            <img src={apiDef.iconUrl} alt={node.label} className="w-7 h-7 object-contain" />
+          ) : (
+            staticIcon
+          )}
+        </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-ink truncate">{node.label}</p>
           <p className="text-xs text-ink-dim font-mono truncate">{node.id}</p>
@@ -210,6 +265,52 @@ export function ServiceConfigPanel({ node, onClose, onUpdate }: ServiceConfigPan
         </button>
       </div>
 
+      {/* Routes section — only for API Gateway */}
+      {node.type === "api-gateway" && (() => {
+        const routes = edges
+          .filter((e) => e.sourceId === node.id || e.targetId === node.id)
+          .filter((e) => {
+            const otherId = e.sourceId === node.id ? e.targetId : e.sourceId;
+            return allNodes.find((n) => n.id === otherId)?.type === "lambda";
+          });
+        if (routes.length === 0) return (
+          <div className="px-5 py-2 border-b border-edge/40 flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-ink-dim uppercase tracking-wider">Routes</span>
+            <span className="text-[10px] text-ink-dim/50 italic">Connect to a Lambda to add routes</span>
+          </div>
+        );
+        return (
+          <div className="px-5 py-2 border-b border-edge/50">
+            <p className="text-[10px] font-semibold text-ink-dim uppercase tracking-wider mb-1.5">Routes</p>
+            <div className="flex flex-col gap-1">
+              {routes.map((e) => {
+                const lambdaId = e.sourceId === node.id ? e.targetId : e.sourceId;
+                const lambda = allNodes.find((n) => n.id === lambdaId);
+                const method = e.config?.method ?? "—";
+                const path   = e.config?.path   ?? "(not configured)";
+                const color  = METHOD_COLORS[method] ?? "text-zinc-400";
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => onEdgeClick?.(e.id)}
+                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-raised/60 transition-colors text-left group"
+                  >
+                    <span className={`text-[11px] font-mono font-bold w-12 shrink-0 ${color}`}>{method}</span>
+                    <span className="text-[11px] font-mono text-ink/70 flex-1 truncate">{path}</span>
+                    <span className="text-[10px] text-ink-dim/50 truncate max-w-[80px]">
+                      {lambda?.config.name as string || lambda?.label || lambdaId}
+                    </span>
+                    <svg viewBox="0 0 12 12" className="w-3 h-3 text-ink-dim/40 group-hover:text-indigo-400 shrink-0 transition-colors" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2 6h8M6 2l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Config fields */}
       <div className="overflow-y-auto h-[calc(100%-7.5rem)] px-5 py-4">
         {Object.keys(schema).length === 0 ? (
@@ -220,6 +321,19 @@ export function ServiceConfigPanel({ node, onClose, onUpdate }: ServiceConfigPan
           <div className="grid grid-cols-2 gap-x-5 gap-y-4">
             {Object.entries(schema).map(([key, field]) => {
               const rawVal = config[key];
+
+              if (field.type === "color") {
+                return (
+                  <div key={key} className="col-span-2">
+                    <ColorField
+                      fieldKey={key}
+                      field={field}
+                      value={String(rawVal ?? "")}
+                      onChange={(v) => setField(key, v)}
+                    />
+                  </div>
+                );
+              }
 
               if (field.type === "boolean") {
                 return (

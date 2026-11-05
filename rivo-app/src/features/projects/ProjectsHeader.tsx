@@ -5,14 +5,24 @@ import { Button } from "../../components/Button/Button";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { ThemeToggle } from "../../components/ThemeToggle/ThemeToggle";
+import { useAuth } from "../../context/AuthContext";
 
 export function ProjectsHeader() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const initials = user?.name
+    ? user.name.charAt(0).toUpperCase()
+    : user?.email?.charAt(0).toUpperCase() ?? "?";
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <header className="h-13 border-b border-edge/60 flex items-center px-5 gap-4 shrink-0 bg-page">
-      {/* Brand */}
       <Link to="/projects" className="flex items-center gap-2.5 shrink-0">
         <RivoLogo className="w-7 h-7" />
         <span className="text-sm font-semibold tracking-tight">rivo</span>
@@ -20,17 +30,15 @@ export function ProjectsHeader() {
 
       <div className="flex-1" />
 
-      {/* Right actions */}
       <div className="flex items-center gap-2">
         <Button variant="secondary" size="sm">
           <UsersIcon className="w-3.5 h-3.5" />
           Invite members
         </Button>
 
-        {/* Avatar + dropdown */}
         <div className="relative ml-1">
           <Avatar
-            initials="J"
+            initials={initials}
             size="sm"
             active={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
@@ -42,8 +50,8 @@ export function ProjectsHeader() {
               onClose={() => setMenuOpen(false)}
               header={
                 <div>
-                  <p className="text-xs font-medium text-ink">Juan García</p>
-                  <p className="text-[11px] text-ink-dim">juan@rivo.dev</p>
+                  <p className="text-xs font-medium text-ink">{user?.name ?? user?.email}</p>
+                  <p className="text-[11px] text-ink-dim">{user?.email}</p>
                 </div>
               }
               sections={[
@@ -51,7 +59,7 @@ export function ProjectsHeader() {
                   items: [
                     {
                       label: "Profile",
-                      icon: <UserIcon className="w-3.5 h-3.5" />,
+                      icon:  <UserIcon className="w-3.5 h-3.5" />,
                       onClick: () => {},
                     },
                   ],
@@ -63,10 +71,10 @@ export function ProjectsHeader() {
                 {
                   items: [
                     {
-                      label: "Sign out",
-                      icon: <LogOutIcon className="w-3.5 h-3.5" />,
+                      label:   "Sign out",
+                      icon:    <LogOutIcon className="w-3.5 h-3.5" />,
                       variant: "danger",
-                      onClick: () => navigate("/login"),
+                      onClick: handleLogout,
                     },
                   ],
                 },

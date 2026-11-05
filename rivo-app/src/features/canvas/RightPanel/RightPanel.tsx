@@ -1,10 +1,12 @@
 import { AWS_SERVICE_CATEGORIES } from "../aws-services";
 import { LambdaPanel } from "./LambdaPanel";
 import { ApiGatewayPanel } from "./ApiGatewayPanel";
-import type { CanvasNode } from "../useCanvas";
+import type { CanvasNode, CanvasEdge } from "../useCanvas";
 
 interface RightPanelProps {
   node: CanvasNode;
+  edges?: CanvasEdge[];
+  allNodes?: CanvasNode[];
   onClose: () => void;
   onOpenCode: () => void;
   onOpenZip: () => void;
@@ -26,13 +28,13 @@ function NoPanel({ label }: { label: string }) {
   );
 }
 
-export function RightPanel({ node, onClose, onOpenCode, onOpenZip }: RightPanelProps) {
+export function RightPanel({ node, edges = [], allNodes = [], onClose, onOpenCode, onOpenZip }: RightPanelProps) {
   const icon = getServiceIcon(node.type);
 
   const content = (() => {
     switch (node.type) {
       case "lambda":      return <LambdaPanel node={node} onOpenCode={onOpenCode} onOpenZip={onOpenZip} />;
-      case "api-gateway": return <ApiGatewayPanel node={node} />;
+      case "api-gateway": return <ApiGatewayPanel node={node} edges={edges} allNodes={allNodes} />;
       default:            return <NoPanel label={node.label} />;
     }
   })();
