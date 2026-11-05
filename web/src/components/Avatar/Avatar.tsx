@@ -24,15 +24,15 @@ export function Avatar({ initials, src, size = "md", onClick, active }: AvatarPr
         "rounded-full border flex items-center justify-center font-medium select-none transition-colors shrink-0 overflow-hidden",
         sizeClasses[size],
         active
-          ? "border-zinc-500 bg-zinc-700"
-          : "border-zinc-700 bg-zinc-800 hover:border-zinc-600",
+          ? "border-zinc-500 bg-raised"
+          : "border-edge bg-raised hover:border-edge",
         onClick ? "cursor-pointer" : "cursor-default",
       ].join(" ")}
     >
       {src ? (
         <img src={src} alt={initials} className="w-full h-full object-cover" />
       ) : (
-        <span className="text-zinc-300">{initials}</span>
+        <span className="text-ink">{initials}</span>
       )}
     </button>
   );

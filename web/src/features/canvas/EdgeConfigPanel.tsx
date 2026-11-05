@@ -10,7 +10,7 @@ const METHOD_COLORS: Record<string, { bg: string; text: string }> = {
   PUT:    { bg: "bg-amber-500/15",   text: "text-amber-400"   },
   PATCH:  { bg: "bg-purple-500/15",  text: "text-purple-400"  },
   DELETE: { bg: "bg-red-500/15",     text: "text-red-400"     },
-  ANY:    { bg: "bg-zinc-700/60",    text: "text-zinc-400"    },
+  ANY:    { bg: "bg-raised/60",    text: "text-ink-dim"    },
 };
 
 interface EdgeConfigPanelProps {

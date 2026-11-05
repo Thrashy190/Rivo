@@ -1,18 +1,22 @@
 import type { Preview, Decorator } from '@storybook/react-vite'
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import '../src/index.css'
 
-const withTheme: Decorator = (Story, context) => {
-  const theme = (context.globals.theme as string) ?? 'dark'
-
+function ThemeRoot({ theme, children }: { theme: string; children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement
     root.classList.toggle('dark', theme === 'dark')
     root.classList.toggle('light', theme === 'light')
   }, [theme])
 
-  return <Story />
+  return children
 }
+
+const withTheme: Decorator = (Story, context) => (
+  <ThemeRoot theme={(context.globals.theme as string) ?? 'dark'}>
+    <Story />
+  </ThemeRoot>
+)
 
 const preview: Preview = {
   globalTypes: {

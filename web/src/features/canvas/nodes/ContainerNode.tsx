@@ -16,8 +16,8 @@ const CONTAINER_STYLES: Record<
 > = {
   region: {
     border: "border-dashed border-2",
-    bg: "bg-zinc-800/20",
-    label: "text-zinc-400",
+    bg: "bg-raised/20",
+    label: "text-ink-dim",
     defaultBorderColor: "rgba(113,113,122,0.6)", // zinc-500/60
   },
   vpc: {

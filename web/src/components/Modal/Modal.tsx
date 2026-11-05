@@ -23,6 +23,16 @@ export function Modal({ open, onClose, title, size = "md", children }: ModalProp
   const panelRef = useRef<HTMLDivElement>(null);
   const isAnimating = useRef(false);
 
+  const animateClose = () => {
+    if (isAnimating.current) return;
+    gsap.to(backdropRef.current, { opacity: 0, duration: 0.15 });
+    gsap.to(panelRef.current, {
+      opacity: 0, y: 10, scale: 0.97,
+      duration: 0.15, ease: "power2.in",
+      onComplete: onClose,
+    });
+  };
+
   // Animate in
   useEffect(() => {
     if (!open) return;
@@ -41,7 +51,7 @@ export function Modal({ open, onClose, title, size = "md", children }: ModalProp
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") animateClose(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open]);
+  }, [open, animateClose]);
 
   // Scroll lock
   useEffect(() => {
@@ -49,16 +59,6 @@ export function Modal({ open, onClose, title, size = "md", children }: ModalProp
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
-
-  const animateClose = () => {
-    if (isAnimating.current) return;
-    gsap.to(backdropRef.current, { opacity: 0, duration: 0.15 });
-    gsap.to(panelRef.current, {
-      opacity: 0, y: 10, scale: 0.97,
-      duration: 0.15, ease: "power2.in",
-      onComplete: onClose,
-    });
-  };
 
   if (!open) return null;
 

@@ -30,7 +30,8 @@
   --theme-raised:  #27272a; /* zinc-800  */
   --theme-edge:    #27272a; /* zinc-800  */
   --theme-ink:     #ffffff;
-  --theme-ink-dim: #71717a; /* zinc-500  */
+  --theme-ink-dim: #a1a1aa; /* zinc-400  */
+  --theme-logo-face: #16282a;
 }
 
 /* ── Light theme ─────────────────────────────────────────────── */
@@ -42,7 +43,8 @@
   --theme-raised:  #e4e4e7; /* zinc-200  */
   --theme-edge:    #d4d4d8; /* zinc-300  */
   --theme-ink:     #09090b; /* zinc-950  */
-  --theme-ink-dim: #71717a; /* zinc-500  */
+  --theme-ink-dim: #52525b; /* zinc-600  */
+  --theme-logo-face: #ddebe9;
 }
 
 /* ── Base ────────────────────────────────────────────────────── */

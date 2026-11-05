@@ -55,9 +55,6 @@ export function SpacePage() {
   useEffect(() => {
     if (!spacesCache.isStale() && !projectsCache.isStale()) return;
 
-    const firstLoad = spacesCache.isEmpty() || projectsCache.isEmpty();
-    if (firstLoad) setLoading(true);
-
     Promise.all([spacesService.list(), projectsService.list()])
       .then(([spacesRes, projRes]) => {
         setSpaces(spacesRes.spaces);

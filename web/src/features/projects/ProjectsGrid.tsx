@@ -47,7 +47,7 @@ export function ProjectsGrid({ projects, loading = false }: ProjectsGridProps) {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h2 className="text-base font-semibold tracking-tight">All projects</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="text-xs text-ink-dim mt-0.5">
             {loading ? (
               <Skeleton className="h-3 w-20 inline-block" />
             ) : projects.length === 0 ? "No projects yet" : `${projects.length} projects`}
@@ -64,7 +64,7 @@ export function ProjectsGrid({ projects, loading = false }: ProjectsGridProps) {
           placeholder="Search projects..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          rightElement={<SearchIcon className="w-4 h-4 text-zinc-600" />}
+          rightElement={<SearchIcon className="w-4 h-4 text-ink-dim" />}
         />
       </div>
 
@@ -90,11 +90,11 @@ export function ProjectsGrid({ projects, loading = false }: ProjectsGridProps) {
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">
-        <FolderIcon className="w-5 h-5 text-zinc-600" />
+      <div className="w-12 h-12 rounded-xl bg-card border border-edge flex items-center justify-center mb-4">
+        <FolderIcon className="w-5 h-5 text-ink-dim" />
       </div>
-      <p className="text-sm font-medium text-zinc-400 mb-1">No projects yet</p>
-      <p className="text-sm text-zinc-600 mb-6 max-w-xs">
+      <p className="text-sm font-medium text-ink-dim mb-1">No projects yet</p>
+      <p className="text-sm text-ink-dim mb-6 max-w-xs">
         Create your first project to start building infrastructure visually.
       </p>
       <Button size="sm" onClick={onCreate}>

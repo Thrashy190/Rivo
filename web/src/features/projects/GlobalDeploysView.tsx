@@ -54,7 +54,7 @@ const STATUS_PILL: Record<DeployStatus, string> = {
   success:   "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
   failed:    "bg-red-500/15 text-red-400 border-red-500/25",
   running:   "bg-sky-500/15 text-sky-400 border-sky-500/25",
-  cancelled: "bg-zinc-500/15 text-zinc-400 border-zinc-500/25",
+  cancelled: "bg-zinc-500/15 text-ink-dim border-zinc-500/25",
 };
 const STATUS_LABEL: Record<DeployStatus, string> = {
   success: "Success", failed: "Failed", running: "Running", cancelled: "Cancelled",

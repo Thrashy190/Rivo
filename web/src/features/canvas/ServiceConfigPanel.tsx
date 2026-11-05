@@ -180,7 +180,7 @@ function BooleanField({
 
 const METHOD_COLORS: Record<string, string> = {
   GET: "text-emerald-400", POST: "text-blue-400", PUT: "text-amber-400",
-  PATCH: "text-purple-400", DELETE: "text-red-400", ANY: "text-zinc-400",
+  PATCH: "text-purple-400", DELETE: "text-red-400", ANY: "text-ink-dim",
 };
 
 interface ServiceConfigPanelProps {
@@ -288,7 +288,7 @@ export function ServiceConfigPanel({ node, edges = [], allNodes = [], onClose, o
                 const lambda = allNodes.find((n) => n.id === lambdaId);
                 const method = e.config?.method ?? "—";
                 const path   = e.config?.path   ?? "(not configured)";
-                const color  = METHOD_COLORS[method] ?? "text-zinc-400";
+                const color  = METHOD_COLORS[method] ?? "text-ink-dim";
                 return (
                   <button
                     key={e.id}

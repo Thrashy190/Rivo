@@ -78,10 +78,10 @@ function OtpInput({ onComplete }: { onComplete: (code: string) => void }) {
           autoComplete={i === 0 ? "one-time-code" : "off"}
           className={[
             "w-12 h-14 text-center text-xl font-semibold rounded-lg outline-none transition-all duration-150",
-            "bg-zinc-900 border text-white caret-transparent",
+            "bg-card border text-ink caret-transparent",
             digit
-              ? "border-zinc-500 bg-zinc-800"
-              : "border-zinc-700",
+              ? "border-zinc-500 bg-raised"
+              : "border-edge",
             "focus:border-white focus:ring-2 focus:ring-white/10",
           ].join(" ")}
         />
@@ -146,10 +146,10 @@ export function ConfirmForm() {
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
         <h1 className="text-xl font-semibold tracking-tight">Check your email</h1>
-        <p className="text-sm text-zinc-500 mt-2 leading-relaxed">
+        <p className="text-sm text-ink-dim mt-2 leading-relaxed">
           We sent a 6-digit code to{" "}
           {emailFromParams
-            ? <span className="text-zinc-300 font-medium">{emailFromParams}</span>
+            ? <span className="text-ink font-medium">{emailFromParams}</span>
             : "your email address"
           }
         </p>
@@ -175,24 +175,24 @@ export function ConfirmForm() {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-zinc-600 mt-6">
+      <p className="text-center text-sm text-ink-dim mt-6">
         Didn't receive a code?{" "}
         <button
           type="button"
           onClick={handleResend}
           disabled={resending}
-          className="text-white hover:text-zinc-300 transition-colors disabled:opacity-50"
+          className="text-ink hover:text-ink transition-colors disabled:opacity-50"
         >
           {resending ? "Sending…" : "Resend code"}
         </button>
       </p>
 
-      <p className="text-center text-sm text-zinc-600 mt-3">
+      <p className="text-center text-sm text-ink-dim mt-3">
         Already confirmed?{" "}
         <button
           type="button"
           onClick={() => navigate("/login")}
-          className="text-white hover:text-zinc-300 transition-colors"
+          className="text-ink hover:text-ink transition-colors"
         >
           Sign in
         </button>

@@ -59,7 +59,7 @@ const LEVEL_STYLE: Record<LogLevel, string> = {
   INFO:  "text-sky-400",
   WARN:  "text-amber-400",
   ERROR: "text-red-400",
-  DEBUG: "text-zinc-500",
+  DEBUG: "text-ink-dim",
 };
 
 const SOURCE_STYLE: Record<string, string> = {
@@ -76,17 +76,14 @@ interface LogsViewProps {
 
 export function LogsView({ projectName }: LogsViewProps) {
   const [lines, setLines] = useState<LogLine[]>(INITIAL_LINES);
-  const [streaming, setStreaming] = useState(true);
   const [streamIdx, setStreamIdx] = useState(0);
   const [filter, setFilter] = useState<LogLevel | "ALL">("ALL");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const streaming = streamIdx < STREAM_LINES.length;
 
   // Stream new lines every 1.4s
   useEffect(() => {
-    if (!streaming || streamIdx >= STREAM_LINES.length) {
-      if (streamIdx >= STREAM_LINES.length) setStreaming(false);
-      return;
-    }
+    if (!streaming) return;
     const t = setTimeout(() => {
       const [level, source, message] = STREAM_LINES[streamIdx];
       setLines((prev) => [...prev, line(level, source, message)]);

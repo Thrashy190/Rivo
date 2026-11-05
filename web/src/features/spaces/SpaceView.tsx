@@ -36,7 +36,7 @@ export function SpaceView({ spaceId: _spaceId, spaceName, projects, loading = fa
             {spaceName || <Skeleton className="h-5 w-32 inline-block" />}
           </h1>
           </div>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-ink-dim">
             {loading
               ? <Skeleton className="h-3 w-24 inline-block" />
               : projects.length === 0
@@ -54,14 +54,14 @@ export function SpaceView({ spaceId: _spaceId, spaceName, projects, loading = fa
       <div className="mb-6 max-w-xs">
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center">
-            <SearchIcon className="w-3.5 h-3.5 text-zinc-600" />
+            <SearchIcon className="w-3.5 h-3.5 text-ink-dim" />
           </div>
           <input
             type="text"
             placeholder="Search projects..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-8 w-full rounded-md border border-zinc-800 bg-zinc-900 pl-8 pr-3 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+            className="h-8 w-full rounded-md border border-edge bg-card pl-8 pr-3 text-xs text-ink placeholder:text-ink-dim focus:outline-none focus:border-edge transition-colors"
           />
         </div>
       </div>
@@ -94,13 +94,13 @@ export function SpaceView({ spaceId: _spaceId, spaceName, projects, loading = fa
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">
-            <FolderIcon className="w-5 h-5 text-zinc-600" />
+          <div className="w-12 h-12 rounded-xl bg-card border border-edge flex items-center justify-center mb-4">
+            <FolderIcon className="w-5 h-5 text-ink-dim" />
           </div>
-          <p className="text-sm font-medium text-zinc-400 mb-1">
+          <p className="text-sm font-medium text-ink-dim mb-1">
             {search ? "No matching projects" : "No projects in this space"}
           </p>
-          <p className="text-sm text-zinc-600 mb-6 max-w-xs">
+          <p className="text-sm text-ink-dim mb-6 max-w-xs">
             {search
               ? "Try a different search term."
               : "Add projects to this space to keep your work organized."}

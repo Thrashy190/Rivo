@@ -59,7 +59,7 @@ export function CreateSpaceWizard() {
   return (
     <div className="w-full max-w-md">
       <h2 className="text-xl font-semibold tracking-tight mb-1">Create a space</h2>
-      <p className="text-sm text-zinc-500 mb-8">Spaces group related projects. Your team can share a space.</p>
+      <p className="text-sm text-ink-dim mb-8">Spaces group related projects. Your team can share a space.</p>
 
       <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
         <Input
@@ -72,20 +72,20 @@ export function CreateSpaceWizard() {
         />
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-zinc-400 tracking-wide uppercase">
-            Description <span className="normal-case text-zinc-600">(optional)</span>
+          <label className="text-xs font-medium text-ink-dim tracking-wide uppercase">
+            Description <span className="normal-case text-ink-dim">(optional)</span>
           </label>
           <textarea
             rows={2}
             placeholder="What does this space contain?"
             value={draft.description}
             onChange={(e) => update("description", e.target.value)}
-            className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 resize-none transition-colors"
+            className="w-full rounded-md border border-edge bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink-dim focus:outline-none focus:border-edge resize-none transition-colors"
           />
         </div>
 
         <div>
-          <p className="text-xs font-medium text-zinc-400 tracking-wide uppercase mb-3">Color</p>
+          <p className="text-xs font-medium text-ink-dim tracking-wide uppercase mb-3">Color</p>
           <div className="flex gap-2.5 flex-wrap">
             {PRESET_COLORS.map((c) => (
               <button
@@ -106,9 +106,9 @@ export function CreateSpaceWizard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2.5 bg-card/60 border border-edge/60 rounded-xl px-4 py-3">
           <span className="w-4 h-4 rounded-sm shrink-0" style={{ backgroundColor: draft.color }} />
-          <span className="text-sm text-zinc-300">{draft.name.trim() || "Space name"}</span>
+          <span className="text-sm text-ink">{draft.name.trim() || "Space name"}</span>
         </div>
 
         {apiError && <p className="text-xs text-red-400 -mt-2">{apiError}</p>}

@@ -14,8 +14,6 @@ export function DeploysPage() {
 
   useEffect(() => {
     if (!spacesCache.isStale()) return;
-    const firstLoad = spacesCache.isEmpty();
-    if (firstLoad) setLoadingSpaces(true);
     spacesService.list()
       .then((res) => setSpaces(res.spaces))
       .catch(console.error)

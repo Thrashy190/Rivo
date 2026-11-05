@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strings"
 
+	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
+	"github.com/Thrashy190/Rivo/services/shared/models/project"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
-	"github.com/Thrashy190/Rivo/services/shared/models/project"
 )
 
 type DynamoDBProjectRepository struct {
@@ -141,16 +141,22 @@ func (r *DynamoDBProjectRepository) Delete(ctx context.Context, id string) error
 
 // List satisfies the ProjectLister port declared by get-all-projects.
 func (r *DynamoDBProjectRepository) List(ctx context.Context) ([]project.Project, error) {
-	out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+	// A Scan returns at most 1 MB per call, so every page has to be read.
+	pages := dynamodb.NewScanPaginator(r.client, &dynamodb.ScanInput{
 		TableName: aws.String(r.table),
 	})
-	if err != nil {
-		return nil, apierrors.Internal(fmt.Errorf("dynamodb Scan: %w", err))
-	}
 
-	projects := make([]project.Project, 0, len(out.Items))
-	if err := attributevalue.UnmarshalListOfMaps(out.Items, &projects); err != nil {
-		return nil, apierrors.Internal(fmt.Errorf("unmarshal projects: %w", err))
+	projects := []project.Project{}
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, apierrors.Internal(fmt.Errorf("dynamodb Scan: %w", err))
+		}
+		var batch []project.Project
+		if err := attributevalue.UnmarshalListOfMaps(page.Items, &batch); err != nil {
+			return nil, apierrors.Internal(fmt.Errorf("unmarshal projects: %w", err))
+		}
+		projects = append(projects, batch...)
 	}
 	return projects, nil
 }

@@ -13,7 +13,7 @@ export function AuthBrandPanel({ tagline, description }: AuthBrandPanelProps) {
         className="absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage:
-            "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
+            "linear-gradient(var(--theme-ink) 1px, transparent 1px), linear-gradient(90deg, var(--theme-ink) 1px, transparent 1px)",
           backgroundSize: "48px 48px",
         }}
       />
@@ -24,10 +24,10 @@ export function AuthBrandPanel({ tagline, description }: AuthBrandPanelProps) {
       </div>
 
       <div className="mt-auto relative">
-        <p className="text-2xl font-light text-white/80 leading-snug tracking-tight">
+        <p className="text-2xl font-light text-ink/80 leading-snug tracking-tight">
           {tagline}
         </p>
-        <p className="mt-4 text-sm text-zinc-500">{description}</p>
+        <p className="mt-4 text-sm text-ink-dim">{description}</p>
       </div>
     </div>
   );

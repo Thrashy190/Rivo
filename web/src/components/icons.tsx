@@ -145,10 +145,21 @@ export function UsersIcon({ className = "w-4 h-4" }: { className?: string }) {
 
 export function RivoLogo({ className = "w-8 h-8" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
-      <polygon fill="#c4b5fd" points="24,4 41,14 24,24 7,14"/>
-      <polygon fill="#863bff" points="41,14 41,34 24,44 24,24"/>
-      <polygon fill="#5b21b6" points="7,14 24,24 24,44 7,34"/>
+    <svg className={`${className} text-ink`} viewBox="0 0 96 96" aria-hidden="true">
+      <polygon fill="var(--theme-logo-face)" points="48,7 83.51,27.5 83.51,68.5 48,89 12.49,68.5 12.49,27.5" />
+      <polygon fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinejoin="round" points="48,7 83.51,27.5 83.51,68.5 48,89 12.49,68.5 12.49,27.5" />
+      <path fill="none" stroke="#6F8786" strokeWidth="2" strokeLinecap="round" d="M83.51 27.5 61.02 40.48M12.49 27.5l22.49 12.98M48 89V63.03M48 7v25.97M83.51 68.5 61.02 55.52M12.49 68.5l22.49-12.98" />
+      <polygon fill="#7CF0E2" points="48,32.97 61.02,40.48 48,48 34.98,40.48" />
+      <polygon fill="#22B8A8" points="34.98,40.48 48,48 48,63.03 34.98,55.52" />
+      <polygon fill="#0E7C78" points="61.02,40.48 48,48 48,63.03 61.02,55.52" />
+      <g fill="currentColor">
+        <circle cx="48" cy="7" r="4.2" />
+        <circle cx="83.51" cy="27.5" r="4.2" />
+        <circle cx="83.51" cy="68.5" r="4.2" />
+        <circle cx="48" cy="89" r="4.2" />
+        <circle cx="12.49" cy="68.5" r="4.2" />
+        <circle cx="12.49" cy="27.5" r="4.2" />
+      </g>
     </svg>
   );
 }

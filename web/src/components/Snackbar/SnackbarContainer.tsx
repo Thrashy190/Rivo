@@ -26,7 +26,7 @@ function SnackItem({ snack }: { snack: Snack }) {
 
   return (
     <div
-      className={`flex items-start gap-3 w-80 bg-zinc-900 border ${BG[snack.type]} rounded-lg px-4 py-3 shadow-xl`}
+      className={`flex items-start gap-3 w-80 bg-card border ${BG[snack.type]} rounded-lg px-4 py-3 shadow-xl`}
       role="alert"
     >
       <svg
@@ -39,11 +39,11 @@ function SnackItem({ snack }: { snack: Snack }) {
         <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[snack.type]} />
       </svg>
 
-      <p className="flex-1 text-sm text-zinc-200 leading-snug">{snack.message}</p>
+      <p className="flex-1 text-sm text-ink leading-snug">{snack.message}</p>
 
       <button
         onClick={() => dismiss(snack.id)}
-        className="text-zinc-600 hover:text-zinc-400 transition-colors shrink-0 mt-0.5"
+        className="text-ink-dim hover:text-ink-dim transition-colors shrink-0 mt-0.5"
         aria-label="Dismiss"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

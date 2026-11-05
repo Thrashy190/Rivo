@@ -228,6 +228,8 @@ export function EdgeLayer({
         `}</style>
       </defs>
 
+      {/* Live drag positions are read from a ref on purpose: the animation loop above updates paths without re-rendering. */}
+      {/* eslint-disable-next-line react-hooks/refs */}
       {edges.map((edge) => {
         const d = computeD(edge);
         if (!d) return null;

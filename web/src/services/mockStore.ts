@@ -1,10 +1,7 @@
-// Temporary in-browser dummy data layer.
-// The old rivo-api backend is being retired — nothing in this file talks to a
-// real server. It exists so the UI has something to read/write while new
-// lambdas are built from scratch. Swap a service module's internals back to
-// `api.get/post/put/del` calls once its real endpoint exists; the exported
-// shapes (ApiSpace, ApiProject, ApiProjectDetail, AuthTokens, ...) are meant
-// to stay stable across that swap.
+// Temporary in-browser sample data. Nothing in this file talks to a server: the
+// UI reads and writes here until each service module is connected to the API in
+// services/. The exported shapes (ApiSpace, ApiProject, ApiProjectDetail,
+// AuthTokens, ...) are meant to stay stable across that swap.
 import type { CanvasNode, CanvasEdge } from "../features/canvas/useCanvas";
 
 export function delay<T>(value: T, ms = 350): Promise<T> {

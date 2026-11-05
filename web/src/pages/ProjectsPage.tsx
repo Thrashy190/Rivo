@@ -45,9 +45,6 @@ export function ProjectsPage() {
   useEffect(() => {
     if (!projectsCache.isStale() && !spacesCache.isStale()) return;
 
-    const firstLoad = projectsCache.isEmpty() || spacesCache.isEmpty();
-    if (firstLoad) setLoading(true);
-
     Promise.all([projectsService.list(), spacesService.list()])
       .then(([projRes, spaceRes]) => {
         setProjects(projRes.projects.map(mapProject));

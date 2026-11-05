@@ -43,7 +43,7 @@ const STREAM_LINES: [LogLevel, string, string, string, string][] = [
 ];
 
 const LEVEL_STYLE: Record<LogLevel, string> = {
-  INFO: "text-sky-400", WARN: "text-amber-400", ERROR: "text-red-400", DEBUG: "text-zinc-500",
+  INFO: "text-sky-400", WARN: "text-amber-400", ERROR: "text-red-400", DEBUG: "text-ink-dim",
 };
 const SOURCE_STYLE: Record<string, string> = {
   orchestrator: "text-violet-400", terraform: "text-indigo-400", aws: "text-emerald-400",
@@ -51,17 +51,14 @@ const SOURCE_STYLE: Record<string, string> = {
 
 export function GlobalLogsView() {
   const [lines, setLines] = useState<LogLine[]>(INITIAL_LINES);
-  const [streaming, setStreaming] = useState(true);
   const [streamIdx, setStreamIdx] = useState(0);
   const [filter, setFilter] = useState<LogLevel | "ALL">("ALL");
   const [projectFilter, setProjectFilter] = useState("ALL");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const streaming = streamIdx < STREAM_LINES.length;
 
   useEffect(() => {
-    if (!streaming || streamIdx >= STREAM_LINES.length) {
-      if (streamIdx >= STREAM_LINES.length) setStreaming(false);
-      return;
-    }
+    if (!streaming) return;
     const t = setTimeout(() => {
       const [level, project, accentColor, source, message] = STREAM_LINES[streamIdx];
       setLines((prev) => [...prev, line(level, project, accentColor, source, message)]);

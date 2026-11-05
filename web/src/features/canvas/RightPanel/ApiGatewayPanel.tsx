@@ -9,7 +9,7 @@ const METHOD_COLORS: Record<string, string> = {
   PUT:    "text-amber-400  bg-amber-500/10",
   PATCH:  "text-violet-400 bg-violet-500/10",
   DELETE: "text-red-400    bg-red-500/10",
-  ANY:    "text-zinc-400   bg-zinc-700/40",
+  ANY:    "text-ink-dim   bg-raised/40",
 };
 
 interface Endpoint {

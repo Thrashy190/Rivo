@@ -30,8 +30,8 @@ function WithAvatar({ align }: { align?: "left" | "right" }) {
           onClose={() => setOpen(false)}
           header={
             <div>
-              <p className="text-xs font-medium text-white">Juan García</p>
-              <p className="text-[11px] text-zinc-500">juan@rivo.dev</p>
+              <p className="text-xs font-medium text-ink">Juan García</p>
+              <p className="text-[11px] text-ink-dim">juan@rivo.dev</p>
             </div>
           }
           sections={[

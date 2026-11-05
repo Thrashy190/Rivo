@@ -39,7 +39,7 @@ export function RegisterForm() {
     <div className="w-full max-w-sm">
       <div className="mb-8">
         <h1 className="text-xl font-semibold tracking-tight">Create an account</h1>
-        <p className="text-sm text-zinc-500 mt-1">Start building infrastructure visually</p>
+        <p className="text-sm text-ink-dim mt-1">Start building infrastructure visually</p>
       </div>
 
       {/* OAuth — not wired to Cognito yet */}
@@ -55,9 +55,9 @@ export function RegisterForm() {
       </div>
 
       <div className="flex items-center gap-4 mb-6">
-        <div className="flex-1 h-px bg-zinc-800" />
-        <span className="text-xs text-zinc-600">or</span>
-        <div className="flex-1 h-px bg-zinc-800" />
+        <div className="flex-1 h-px bg-raised" />
+        <span className="text-xs text-ink-dim">or</span>
+        <div className="flex-1 h-px bg-raised" />
       </div>
 
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -92,7 +92,7 @@ export function RegisterForm() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="text-zinc-600 hover:text-zinc-400 transition-colors"
+              className="text-ink-dim hover:text-ink-dim transition-colors"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -104,17 +104,17 @@ export function RegisterForm() {
           {loading ? "Creating account…" : "Create account"}
         </Button>
 
-        <p className="text-xs text-zinc-600 text-center leading-relaxed">
+        <p className="text-xs text-ink-dim text-center leading-relaxed">
           By continuing you agree to our{" "}
-          <a href="#" className="text-zinc-400 hover:text-white transition-colors">Terms</a>
+          <a href="#" className="text-ink-dim hover:text-ink transition-colors">Terms</a>
           {" "}and{" "}
-          <a href="#" className="text-zinc-400 hover:text-white transition-colors">Privacy Policy</a>
+          <a href="#" className="text-ink-dim hover:text-ink transition-colors">Privacy Policy</a>
         </p>
       </form>
 
-      <p className="text-center text-sm text-zinc-600 mt-6">
+      <p className="text-center text-sm text-ink-dim mt-6">
         Have an account?{" "}
-        <Link to="/login" className="text-white hover:text-zinc-300 transition-colors">
+        <Link to="/login" className="text-ink hover:text-ink transition-colors">
           Sign in
         </Link>
       </p>

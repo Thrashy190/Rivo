@@ -20,7 +20,7 @@ const statusConfig: Record<
   ProjectStatus,
   { label: string; bg: string; text: string; dot: string }
 > = {
-  draft:     { label: "Draft",     bg: "bg-zinc-800/70",    text: "text-zinc-400",    dot: "bg-zinc-500"    },
+  draft:     { label: "Draft",     bg: "bg-raised/70",    text: "text-ink-dim",    dot: "bg-zinc-500"    },
   deployed:  { label: "Deployed",  bg: "bg-emerald-500/10", text: "text-emerald-400", dot: "bg-emerald-400" },
   failed:    { label: "Failed",    bg: "bg-red-500/10",     text: "text-red-400",     dot: "bg-red-400"     },
   deploying: { label: "Deploying", bg: "bg-indigo-500/10",  text: "text-indigo-400",  dot: "bg-indigo-400"  },

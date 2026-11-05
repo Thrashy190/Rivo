@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
+	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
+	"github.com/Thrashy190/Rivo/services/shared/models/user"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
-	"github.com/Thrashy190/Rivo/services/shared/models/user"
 )
 
 type DynamoDBUserRepository struct {
@@ -148,16 +148,22 @@ func (r *DynamoDBUserRepository) Delete(ctx context.Context, id string) error {
 }
 
 func (r *DynamoDBUserRepository) List(ctx context.Context) ([]user.User, error) {
-	out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+	// A Scan returns at most 1 MB per call, so every page has to be read.
+	pages := dynamodb.NewScanPaginator(r.client, &dynamodb.ScanInput{
 		TableName: aws.String(r.table),
 	})
-	if err != nil {
-		return nil, apierrors.Internal(fmt.Errorf("dynamodb Scan: %w", err))
-	}
 
-	users := make([]user.User, 0, len(out.Items))
-	if err := attributevalue.UnmarshalListOfMaps(out.Items, &users); err != nil {
-		return nil, apierrors.Internal(fmt.Errorf("unmarshal users: %w", err))
+	users := []user.User{}
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, apierrors.Internal(fmt.Errorf("dynamodb Scan: %w", err))
+		}
+		var batch []user.User
+		if err := attributevalue.UnmarshalListOfMaps(page.Items, &batch); err != nil {
+			return nil, apierrors.Internal(fmt.Errorf("unmarshal users: %w", err))
+		}
+		users = append(users, batch...)
 	}
 	return users, nil
 }

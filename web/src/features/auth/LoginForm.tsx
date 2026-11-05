@@ -44,7 +44,7 @@ export function LoginForm() {
     <div className="w-full max-w-sm">
       <div className="mb-8">
         <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
-        <p className="text-sm text-zinc-500 mt-1">Sign in to your account</p>
+        <p className="text-sm text-ink-dim mt-1">Sign in to your account</p>
       </div>
 
       {/* OAuth — not wired to Cognito yet */}
@@ -60,9 +60,9 @@ export function LoginForm() {
       </div>
 
       <div className="flex items-center gap-4 mb-6">
-        <div className="flex-1 h-px bg-zinc-800" />
-        <span className="text-xs text-zinc-600">or</span>
-        <div className="flex-1 h-px bg-zinc-800" />
+        <div className="flex-1 h-px bg-raised" />
+        <span className="text-xs text-ink-dim">or</span>
+        <div className="flex-1 h-px bg-raised" />
       </div>
 
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -88,7 +88,7 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="text-zinc-600 hover:text-zinc-400 transition-colors"
+                className="text-ink-dim hover:text-ink-dim transition-colors"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -96,7 +96,7 @@ export function LoginForm() {
             }
           />
           <div className="flex justify-end">
-            <a href="#" className="text-xs text-zinc-500 hover:text-white transition-colors">
+            <a href="#" className="text-xs text-ink-dim hover:text-ink transition-colors">
               Forgot password?
             </a>
           </div>
@@ -107,9 +107,9 @@ export function LoginForm() {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-zinc-600 mt-6">
+      <p className="text-center text-sm text-ink-dim mt-6">
         No account?{" "}
-        <Link to="/register" className="text-white hover:text-zinc-300 transition-colors">
+        <Link to="/register" className="text-ink hover:text-ink transition-colors">
           Sign up
         </Link>
       </p>

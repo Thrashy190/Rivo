@@ -78,13 +78,13 @@ export function ProjectsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen bg-page">
       <main className="max-w-5xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="flex items-start justify-between mb-10">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
-            <p className="text-sm text-zinc-500 mt-1">
+            <p className="text-sm text-ink-dim mt-1">
               {MOCK_PROJECTS.length} projects in your workspace
             </p>
           </div>
@@ -100,7 +100,7 @@ export function ProjectsPage() {
             placeholder="Search projects..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            rightElement={<SearchIcon className="w-4 h-4 text-zinc-600" />}
+            rightElement={<SearchIcon className="w-4 h-4 text-ink-dim" />}
           />
         </div>
 
@@ -122,11 +122,11 @@ export function ProjectsPage() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-32 text-center">
-      <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">
-        <FolderIcon className="w-5 h-5 text-zinc-600" />
+      <div className="w-12 h-12 rounded-xl bg-card border border-edge flex items-center justify-center mb-4">
+        <FolderIcon className="w-5 h-5 text-ink-dim" />
       </div>
-      <p className="text-sm font-medium text-zinc-400 mb-1">No projects found</p>
-      <p className="text-sm text-zinc-600 mb-6">
+      <p className="text-sm font-medium text-ink-dim mb-1">No projects found</p>
+      <p className="text-sm text-ink-dim mb-6">
         Try a different search term or start a new project.
       </p>
       <Button size="sm">
