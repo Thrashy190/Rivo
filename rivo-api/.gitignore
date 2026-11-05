@@ -1,0 +1,42 @@
+terraform-state
+tf-*-plan.out
+go.work
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Lambda build artifacts
+bootstrap
+*.zip
+# "go build ." sin -o nombra el binario igual que la carpeta del módulo —
+# si alguna vez lo corres así en vez de "go build -o bootstrap .", agrega
+# aquí el nombre de esa carpeta para no subir el binario por accidente.
+/src/ping/ping
+/src/project/create-project/create-project
+/src/project/get-project/get-project
+
+# Go test artifacts
+*.test
+coverage.out
+coverage.*.out
+
+# Secrets / credentials
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+Claude.md
