@@ -8,8 +8,8 @@ require (
 	github.com/Thrashy190/Rivo/services/shared v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-lambda-go v1.55.1
 	github.com/aws/aws-sdk-go-v2 v1.47.6
-	github.com/aws/aws-sdk-go-v2/config v1.33.9
-	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.75.4
+	github.com/aws/aws-sdk-go-v2/config v1.33.13
+	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.75.7
 )
 
 require (
