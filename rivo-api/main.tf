@@ -11,6 +11,47 @@ module "projects_table" {
   ]
 }
 
+module "users_table" {
+  source       = "./infraestructure/dynamoDB"
+  table_name   = "users"
+  project_name = var.project_name
+  environment  = var.environment
+  hash_key     = "id"
+  attributes = [
+    { name = "id", type = "S" },
+  ]
+}
+
+# -- Cognito --
+
+module "cognito" {
+  source       = "./infraestructure/cognito"
+  project_name = var.project_name
+  environment  = var.environment
+  admin_email  = var.admin_email
+}
+
+# Siembra al admin inicial en la tabla users: Cognito dice quién es, pero
+# los permisos salen de esta tabla, así que sin esta fila el admin entraría
+# sin acceso a nada. El rol admin ya implica todos los permisos ("*").
+# ignore_changes para que Terraform no pise cambios hechos después desde la
+# propia API (ej. si el admin se cambia el rol o se deshabilita).
+resource "aws_dynamodb_table_item" "admin_user" {
+  table_name = module.users_table.name
+  hash_key   = "id"
+
+  item = jsonencode({
+    id     = { S = module.cognito.admin_sub }
+    email  = { S = var.admin_email }
+    role   = { S = "admin" }
+    status = { S = "active" }
+  })
+
+  lifecycle {
+    ignore_changes = [item]
+  }
+}
+
 # -- Lambdas --
 
 module "lambda_ping" {
@@ -21,6 +62,167 @@ module "lambda_ping" {
   environment         = var.environment
 }
 
+# -- Lambdas: auth --
+
+module "lambda_login" {
+  source              = "./infraestructure/lambda/golang"
+  function_name       = "login"
+  path_directory_file = "auth/login/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USER_POOL_CLIENT_ID = module.cognito.app_client_id
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["cognito-idp:InitiateAuth"]
+      Resource = module.cognito.user_pool_arn
+    }
+  ]
+}
+
+module "lambda_new_password" {
+  source              = "./infraestructure/lambda/golang"
+  function_name       = "new-password"
+  path_directory_file = "auth/new-password/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USER_POOL_CLIENT_ID = module.cognito.app_client_id
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["cognito-idp:RespondToAuthChallenge"]
+      Resource = module.cognito.user_pool_arn
+    }
+  ]
+}
+
+# -- Lambdas: users --
+#
+# Todos leen la tabla users porque ahí está el permiso que exige el handler
+# (ver shared/authz), no solo porque operen sobre usuarios.
+
+module "lambda_create_user" {
+  source              = "./infraestructure/lambda/golang"
+  function_name       = "create-user"
+  path_directory_file = "user/create-user/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USERS_TABLE_NAME = module.users_table.name
+    USER_POOL_ID     = module.cognito.user_pool_id
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem", "dynamodb:PutItem"]
+      Resource = module.users_table.arn
+    },
+    {
+      Effect   = "Allow"
+      Action   = ["cognito-idp:AdminCreateUser"]
+      Resource = module.cognito.user_pool_arn
+    }
+  ]
+}
+
+module "lambda_get_all_users" {
+  source              = "./infraestructure/lambda/golang"
+  function_name       = "get-all-users"
+  path_directory_file = "user/get-all-users/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USERS_TABLE_NAME = module.users_table.name
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem", "dynamodb:Scan"]
+      Resource = module.users_table.arn
+    }
+  ]
+}
+
+module "lambda_get_me" {
+  source              = "./infraestructure/lambda/golang"
+  function_name       = "get-me"
+  path_directory_file = "user/get-me/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USERS_TABLE_NAME = module.users_table.name
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem"]
+      Resource = module.users_table.arn
+    }
+  ]
+}
+
+module "lambda_update_user" {
+  source              = "./infraestructure/lambda/golang"
+  function_name       = "update-user"
+  path_directory_file = "user/update-user/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USERS_TABLE_NAME = module.users_table.name
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+      Resource = module.users_table.arn
+    }
+  ]
+}
+
+module "lambda_delete_user" {
+  source              = "./infraestructure/lambda/golang"
+  function_name       = "delete-user"
+  path_directory_file = "user/delete-user/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USERS_TABLE_NAME = module.users_table.name
+    USER_POOL_ID     = module.cognito.user_pool_id
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem", "dynamodb:DeleteItem"]
+      Resource = module.users_table.arn
+    },
+    {
+      Effect   = "Allow"
+      Action   = ["cognito-idp:AdminDeleteUser"]
+      Resource = module.cognito.user_pool_arn
+    }
+  ]
+}
+
+# -- Lambdas: projects --
+
 module "lambda_create_project" {
   source              = "./infraestructure/lambda/golang"
   function_name       = "create-project"
@@ -29,7 +231,8 @@ module "lambda_create_project" {
   environment         = var.environment
 
   environment_variables = {
-    TABLE_NAME = module.projects_table.name
+    TABLE_NAME       = module.projects_table.name
+    USERS_TABLE_NAME = module.users_table.name
   }
 
   statement = [
@@ -37,6 +240,11 @@ module "lambda_create_project" {
       Effect   = "Allow"
       Action   = ["dynamodb:PutItem"]
       Resource = module.projects_table.arn
+    },
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem"]
+      Resource = module.users_table.arn
     }
   ]
 }
@@ -49,7 +257,8 @@ module "lambda_get_project" {
   environment         = var.environment
 
   environment_variables = {
-    TABLE_NAME = module.projects_table.name
+    TABLE_NAME       = module.projects_table.name
+    USERS_TABLE_NAME = module.users_table.name
   }
 
   statement = [
@@ -57,6 +266,11 @@ module "lambda_get_project" {
       Effect   = "Allow"
       Action   = ["dynamodb:GetItem"]
       Resource = module.projects_table.arn
+    },
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem"]
+      Resource = module.users_table.arn
     }
   ]
 }
@@ -69,7 +283,8 @@ module "lambda_get_all_projects" {
   environment         = var.environment
 
   environment_variables = {
-    TABLE_NAME = module.projects_table.name
+    TABLE_NAME       = module.projects_table.name
+    USERS_TABLE_NAME = module.users_table.name
   }
 
   statement = [
@@ -77,6 +292,11 @@ module "lambda_get_all_projects" {
       Effect   = "Allow"
       Action   = ["dynamodb:Scan"]
       Resource = module.projects_table.arn
+    },
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem"]
+      Resource = module.users_table.arn
     }
   ]
 }
@@ -89,7 +309,8 @@ module "lambda_update_project" {
   environment         = var.environment
 
   environment_variables = {
-    TABLE_NAME = module.projects_table.name
+    TABLE_NAME       = module.projects_table.name
+    USERS_TABLE_NAME = module.users_table.name
   }
 
   statement = [
@@ -97,6 +318,11 @@ module "lambda_update_project" {
       Effect   = "Allow"
       Action   = ["dynamodb:UpdateItem"]
       Resource = module.projects_table.arn
+    },
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem"]
+      Resource = module.users_table.arn
     }
   ]
 }
@@ -109,7 +335,8 @@ module "lambda_delete_project" {
   environment         = var.environment
 
   environment_variables = {
-    TABLE_NAME = module.projects_table.name
+    TABLE_NAME       = module.projects_table.name
+    USERS_TABLE_NAME = module.users_table.name
   }
 
   statement = [
@@ -117,6 +344,11 @@ module "lambda_delete_project" {
       Effect   = "Allow"
       Action   = ["dynamodb:DeleteItem"]
       Resource = module.projects_table.arn
+    },
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem"]
+      Resource = module.users_table.arn
     }
   ]
 }
@@ -127,6 +359,13 @@ module "rest_api" {
   source       = "./infraestructure/api/api-rest"
   project_name = var.project_name
   environment  = var.environment
+}
+
+module "api_authorizer" {
+  source        = "./infraestructure/api/api-authorizer"
+  rest_api_id   = module.rest_api.id
+  user_pool_arn = module.cognito.user_pool_arn
+  environment   = var.environment
 }
 
 module "ping_resource" {
@@ -150,17 +389,131 @@ module "project_id_resource" {
   path_part   = "{id}"
 }
 
+module "auth_resource" {
+  source      = "./infraestructure/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.rest_api.root_resource_id
+  path_part   = "auth"
+}
+
+module "auth_login_resource" {
+  source      = "./infraestructure/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.auth_resource.id
+  path_part   = "login"
+}
+
+module "auth_new_password_resource" {
+  source      = "./infraestructure/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.auth_resource.id
+  path_part   = "new-password"
+}
+
+module "users_resource" {
+  source      = "./infraestructure/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.rest_api.root_resource_id
+  path_part   = "users"
+}
+
+# /users/me tiene que ser su propio resource (literal) y no caer en
+# /users/{id}: API Gateway resuelve primero el segmento literal.
+module "users_me_resource" {
+  source      = "./infraestructure/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.users_resource.id
+  path_part   = "me"
+}
+
+module "user_id_resource" {
+  source      = "./infraestructure/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.users_resource.id
+  path_part   = "{id}"
+}
+
 locals {
   routes = {
     ping = {
       resource_id = module.ping_resource.id
       http_method = "GET"
       route_path  = "ping"
+      public      = true
       lambda = {
         invoke_arn    = module.lambda_ping.invoke_arn
         function_name = module.lambda_ping.function_name
       }
     }
+
+    # Públicas por necesidad: corren antes de que el usuario tenga token.
+    login = {
+      resource_id = module.auth_login_resource.id
+      http_method = "POST"
+      route_path  = "auth/login"
+      public      = true
+      lambda = {
+        invoke_arn    = module.lambda_login.invoke_arn
+        function_name = module.lambda_login.function_name
+      }
+    }
+    new_password = {
+      resource_id = module.auth_new_password_resource.id
+      http_method = "POST"
+      route_path  = "auth/new-password"
+      public      = true
+      lambda = {
+        invoke_arn    = module.lambda_new_password.invoke_arn
+        function_name = module.lambda_new_password.function_name
+      }
+    }
+
+    create_user = {
+      resource_id = module.users_resource.id
+      http_method = "POST"
+      route_path  = "users"
+      lambda = {
+        invoke_arn    = module.lambda_create_user.invoke_arn
+        function_name = module.lambda_create_user.function_name
+      }
+    }
+    get_all_users = {
+      resource_id = module.users_resource.id
+      http_method = "GET"
+      route_path  = "users"
+      lambda = {
+        invoke_arn    = module.lambda_get_all_users.invoke_arn
+        function_name = module.lambda_get_all_users.function_name
+      }
+    }
+    get_me = {
+      resource_id = module.users_me_resource.id
+      http_method = "GET"
+      route_path  = "users/me"
+      lambda = {
+        invoke_arn    = module.lambda_get_me.invoke_arn
+        function_name = module.lambda_get_me.function_name
+      }
+    }
+    update_user = {
+      resource_id = module.user_id_resource.id
+      http_method = "PATCH"
+      route_path  = "users/{id}"
+      lambda = {
+        invoke_arn    = module.lambda_update_user.invoke_arn
+        function_name = module.lambda_update_user.function_name
+      }
+    }
+    delete_user = {
+      resource_id = module.user_id_resource.id
+      http_method = "DELETE"
+      route_path  = "users/{id}"
+      lambda = {
+        invoke_arn    = module.lambda_delete_user.invoke_arn
+        function_name = module.lambda_delete_user.function_name
+      }
+    }
+
     create_project = {
       resource_id = module.projects_resource.id
       http_method = "POST"
@@ -216,6 +569,7 @@ module "api" {
   project_name      = var.project_name
   rest_api_id       = module.rest_api.id
   api_execution_arn = module.rest_api.execution_arn
+  authorizer_id     = module.api_authorizer.id
   environment       = var.environment
   routes            = local.routes
 }

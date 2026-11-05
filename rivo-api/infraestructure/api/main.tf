@@ -9,6 +9,9 @@ module "routes" {
   lambda_invoke_arn    = each.value.lambda.invoke_arn
   lambda_function_name = each.value.lambda.function_name
   api_execution_arn    = var.api_execution_arn
+
+  authorization = each.value.public ? "NONE" : "COGNITO_USER_POOLS"
+  authorizer_id = each.value.public ? null : var.authorizer_id
 }
 
 resource "aws_api_gateway_deployment" "this" {
@@ -16,8 +19,9 @@ resource "aws_api_gateway_deployment" "this" {
 
   triggers = {
     redeployment = sha1(jsonencode({
-      routes  = var.routes
-      methods = [for r in module.routes : r.method_id]
+      routes     = var.routes
+      authorizer = var.authorizer_id
+      methods    = [for r in module.routes : r.method_id]
     }))
   }
 

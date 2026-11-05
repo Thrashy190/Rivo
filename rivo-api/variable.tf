@@ -26,3 +26,16 @@ variable "environment" {
   type        = string
   description = "Environment"
 }
+
+# Sin signup público, el admin inicial es la única puerta de entrada al
+# sistema recién instalado, así que esto es obligatorio y tiene que ser un
+# mail real: ahí llega la password temporal.
+variable "admin_email" {
+  type        = string
+  description = "Email del usuario admin inicial"
+
+  validation {
+    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.admin_email)) && var.admin_email != "CHANGE_ME@example.com"
+    error_message = "admin_email tiene que ser un email real (editá environments/<env>/<env>.tfvars): ahí llega la password temporal del admin inicial."
+  }
+}
