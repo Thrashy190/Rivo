@@ -14,6 +14,7 @@ const (
 	CodeUnauthorized = "UNAUTHORIZED"
 	CodeForbidden    = "FORBIDDEN"
 	CodeConflict     = "CONFLICT"
+	CodeTooMany      = "TOO_MANY_REQUESTS"
 )
 
 type ApiError struct {
@@ -52,4 +53,10 @@ func Forbidden(msg string) *ApiError {
 
 func Conflict(msg string) *ApiError {
 	return &ApiError{Code: CodeConflict, Message: msg, StatusCode: http.StatusConflict}
+}
+
+// TooMany: the caller must wait before trying again, such as after too many
+// password reset attempts.
+func TooMany(msg string) *ApiError {
+	return &ApiError{Code: CodeTooMany, Message: msg, StatusCode: http.StatusTooManyRequests}
 }

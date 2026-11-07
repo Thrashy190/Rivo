@@ -107,6 +107,8 @@ Every route looks the project up inside the workspace in the path before it touc
 | `POST /auth/login` | Anyone |
 | `POST /auth/new-password` | Anyone with the session from a login |
 | `POST /auth/refresh` | Anyone with a refresh token |
+| `POST /auth/forgot-password` | Anyone. Emails a code, and answers the same whether or not the address has an account |
+| `POST /auth/reset-password` | Anyone with that code |
 | `GET /users/me` | Signed in |
 
 ## Known limits

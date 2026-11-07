@@ -83,4 +83,10 @@ resource "aws_api_gateway_gateway_response" "cors" {
   response_parameters = {
     "gatewayresponse.header.Access-Control-Allow-Origin" = "'${var.web_origin}'"
   }
+
+  # API Gateway's own body. Declared so Terraform does not see a change on
+  # every plan, and the web app reads `message` from it.
+  response_templates = {
+    "application/json" = "{\"message\":$context.error.messageString}"
+  }
 }

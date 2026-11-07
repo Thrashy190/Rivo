@@ -117,6 +117,48 @@ module "lambda_refresh" {
   ]
 }
 
+module "lambda_forgot_password" {
+  source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
+  function_name       = "forgot-password"
+  path_directory_file = "auth/forgot-password/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USER_POOL_CLIENT_ID = module.cognito.app_client_id
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["cognito-idp:ForgotPassword"]
+      Resource = module.cognito.user_pool_arn
+    }
+  ]
+}
+
+module "lambda_reset_password" {
+  source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
+  function_name       = "reset-password"
+  path_directory_file = "auth/reset-password/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USER_POOL_CLIENT_ID = module.cognito.app_client_id
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["cognito-idp:ConfirmForgotPassword"]
+      Resource = module.cognito.user_pool_arn
+    }
+  ]
+}
+
 # -- Lambdas: users --
 #
 # All of them read the users table because it holds the permission the handler
@@ -289,6 +331,20 @@ module "auth_refresh_resource" {
   path_part   = "refresh"
 }
 
+module "auth_forgot_password_resource" {
+  source      = "./modules/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.auth_resource.id
+  path_part   = "forgot-password"
+}
+
+module "auth_reset_password_resource" {
+  source      = "./modules/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.auth_resource.id
+  path_part   = "reset-password"
+}
+
 module "users_resource" {
   source      = "./modules/api/api-resource"
   rest_api_id = module.rest_api.id
@@ -354,6 +410,29 @@ locals {
       lambda = {
         invoke_arn    = module.lambda_refresh.invoke_arn
         function_name = module.lambda_refresh.function_name
+      }
+    }
+
+    # Public too: someone who forgot their password cannot sign in.
+    forgot_password = {
+      resource_id = module.auth_forgot_password_resource.id
+      http_method = "POST"
+      route_path  = "auth/forgot-password"
+      public      = true
+      lambda = {
+        invoke_arn    = module.lambda_forgot_password.invoke_arn
+        function_name = module.lambda_forgot_password.function_name
+      }
+    }
+
+    reset_password = {
+      resource_id = module.auth_reset_password_resource.id
+      http_method = "POST"
+      route_path  = "auth/reset-password"
+      public      = true
+      lambda = {
+        invoke_arn    = module.lambda_reset_password.invoke_arn
+        function_name = module.lambda_reset_password.function_name
       }
     }
 
