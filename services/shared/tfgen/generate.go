@@ -397,7 +397,9 @@ func (g *gen) lambda(n *Node) {
 		if family == "nodejs" && esModule.MatchString(code) {
 			ext = ".mjs"
 		}
-		g.extra = append(g.extra, File{Path: "functions/" + l + "/" + module + ext, Content: code})
+		main := module + ext
+		g.extra = append(g.extra, File{Path: "functions/" + l + "/" + main, Content: code})
+		g.functionFiles(n, l, main, len(code))
 		g.archive = true
 		arch := f.add(newBlock("data", "archive_file", l))
 		arch.attr("type", str("zip"))
@@ -473,6 +475,49 @@ func (g *gen) lambda(n *Node) {
 	fn.blank().attr("depends_on", list(raw("aws_iam_role_policy_attachment."+l+"_logs"), raw("aws_cloudwatch_log_group."+l)))
 
 	g.output(l+"_function_name", "Name of the "+n.name()+" function", raw("aws_lambda_function."+l+".function_name"))
+}
+
+// Limits of the files written next to a function's handler. They live in the
+// diagram, so they share its size limit.
+const (
+	maxFunctionFiles = 50
+	maxFunctionBytes = 256 * 1024
+)
+
+var filePath = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){0,4}$`)
+
+// functionFiles writes the other files of a function written in the diagram,
+// such as modules its handler imports.
+func (g *gen) functionFiles(n *Node, l, main string, size int) {
+	files, _ := n.Config["files"].(map[string]any)
+	paths := make([]string, 0, len(files))
+	for p := range files {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	count := 0
+	for _, p := range paths {
+		content, ok := files[p].(string)
+		switch {
+		case !ok:
+			continue
+		case !filePath.MatchString(p) || strings.Contains(p, ".."):
+			g.warn(n.ID, "", fmt.Sprintf("%s: the file name %q is not valid, so it was left out.", n.name(), p))
+			continue
+		case p == main:
+			g.warn(n.ID, "", fmt.Sprintf("%s: %s is the handler's file, so the copy in the other files was left out.", n.name(), p))
+			continue
+		case count == maxFunctionFiles:
+			g.warn(n.ID, "", fmt.Sprintf("%s has more than %d files; %s was left out.", n.name(), maxFunctionFiles, p))
+			continue
+		case size+len(content) > maxFunctionBytes:
+			g.warn(n.ID, "", fmt.Sprintf("%s: its files go over %d KB, so %s was left out. Upload a .zip instead.", n.name(), maxFunctionBytes/1024, p))
+			continue
+		}
+		count++
+		size += len(content)
+		g.extra = append(g.extra, File{Path: "functions/" + l + "/" + p, Content: content})
+	}
 }
 
 func oneOf(v string, allowed ...string) string {

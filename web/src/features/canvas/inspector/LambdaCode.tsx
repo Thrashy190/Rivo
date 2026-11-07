@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { CanvasEdge, CanvasNode } from "../useCanvas";
-import { lambdaSource } from "../lambdaSource";
+import { connectedVariables, lambdaSource } from "../lambdaSource";
 import { formatBytes } from "../../../utils/format";
 import { inputClass, sectionTitle } from "./styles";
 
@@ -15,29 +15,6 @@ interface LambdaCodeProps {
 }
 
 const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-// The same names the Terraform generator gives (envName in tfgen/names.go).
-function envName(name: string, suffix: string) {
-  let s = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  if (!s) s = "resource";
-  if (/^[0-9]/.test(s)) s = `r_${s}`;
-  return `${s.slice(0, 48).replace(/_+$/, "").toUpperCase()}_${suffix}`;
-}
-
-// Variables Rivo adds because of the function's connections.
-function connectedVariables(node: CanvasNode, nodes: CanvasNode[], edges: CanvasEdge[]) {
-  const out: { key: string; from: string }[] = [];
-  for (const e of edges) {
-    const otherId = e.sourceId === node.id ? e.targetId : e.targetId === node.id ? e.sourceId : null;
-    const other = otherId ? nodes.find((n) => n.id === otherId) : null;
-    if (!other) continue;
-    const name = String(other.config.name ?? other.id);
-    if (other.type === "dynamodb") out.push({ key: envName(name, "TABLE"), from: name });
-    if (other.type === "s3") out.push({ key: envName(name, "BUCKET"), from: name });
-    if (other.type === "eventbridge" && e.sourceId === node.id) out.push({ key: "EVENT_BUS_NAME", from: "default bus" });
-  }
-  return out.filter((v, i) => out.findIndex((w) => w.key === v.key) === i);
-}
 
 export function LambdaCode({ node, nodes, edges, readOnly = false, onOpenCode, onOpenZip, onUpdate }: LambdaCodeProps) {
   const source = lambdaSource(node);

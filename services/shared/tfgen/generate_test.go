@@ -281,3 +281,42 @@ func TestExamplesWithTerraform(t *testing.T) {
 		})
 	}
 }
+
+func TestFunctionFiles(t *testing.T) {
+	d := &Diagram{Nodes: []Node{{ID: "f", Type: "lambda", Config: map[string]any{
+		"name": "orders", "runtime": "python3.13", "handler": "app.handler", "source": "inline",
+		"code": "from lib.db import table\n",
+		"files": map[string]any{
+			"lib/db.py":        "table = None\n",
+			"lib/__init__.py":  "",
+			"../escape.py":     "x",
+			"/etc/passwd":      "x",
+			"app.py":           "duplicate",
+			"templates/a.html": "<p>hi</p>",
+		},
+	}}}}
+	res, err := Generate(d, Options{ProjectName: "p", Region: "us-east-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{"functions/orders/app.py", "functions/orders/lib/db.py", "functions/orders/lib/__init__.py", "functions/orders/templates/a.html"} {
+		found := false
+		for _, f := range res.Files {
+			found = found || f.Path == p
+		}
+		if !found {
+			t.Errorf("missing %s", p)
+		}
+	}
+	if content(res, "functions/orders/app.py") != "from lib.db import table\n" {
+		t.Error("the handler was replaced by the copy in files")
+	}
+	for _, f := range res.Files {
+		if strings.Contains(f.Path, "..") || strings.Contains(f.Path, "etc/passwd") {
+			t.Errorf("wrote %s", f.Path)
+		}
+	}
+	if len(res.Warnings) != 3 {
+		t.Errorf("want 3 warnings, got %+v", res.Warnings)
+	}
+}

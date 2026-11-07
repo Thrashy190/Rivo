@@ -440,9 +440,11 @@ export function CanvasPage() {
       {lambdaModal === "code" && selectedNode?.type === "lambda" && (
         <CodeModal
           node={selectedNode}
+          nodes={nodes}
+          edges={edges}
           readOnly={!canSave}
-          onSave={(code) => {
-            updateNodeConfig(selectedNode.id, withInlineCode(selectedNode, code));
+          onSave={(code, files) => {
+            updateNodeConfig(selectedNode.id, withInlineCode(selectedNode, code, files));
             push("The function now uses this code. Save the diagram to keep it.", "info");
           }}
           onClose={() => setLambdaModal(null)}
