@@ -7,7 +7,7 @@ const Editor = lazy(async () => {
   return import("@monaco-editor/react");
 });
 
-export type CodeLanguage = "javascript" | "typescript" | "python" | "go" | "java" | "ruby";
+export type CodeLanguage = "javascript" | "typescript" | "python" | "go" | "java" | "ruby" | "hcl" | "html" | "markdown" | "plaintext";
 
 interface CodeEditorProps {
   value: string;

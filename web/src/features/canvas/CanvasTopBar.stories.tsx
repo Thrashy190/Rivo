@@ -21,10 +21,10 @@ const meta: Meta<typeof CanvasTopBar> = {
     projectName: "production-vpc",
     workspaceName: "Acme",
     workspaceHref: "/workspaces/acme",
-    nodeCount: 0,
-    viewport: { x: 0, y: 0, zoom: 1 },
-    onZoomChange: () => {},
+    region: "us-east-1",
     onExportJSON: () => INFRA_MODEL,
+    onOpenTerraform: () => {},
+    onToggleLibrary: () => {},
   },
 };
 
@@ -43,8 +43,7 @@ export const ViewOnly: Story = {
 
 export const WithNodes: Story = {
   args: {
-    nodeCount: 7,
-    viewport: { x: 0, y: 0, zoom: 1.5 },
+    libraryOpen: false,
     onExportJSON: () => ({
       ...INFRA_MODEL,
       nodes: Array.from({ length: 7 }, (_, i) => ({

@@ -1,8 +1,8 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
-// In production these schemas come from GET /api/service-types.
-// The frontend only renders — all definitions live server-side.
+// What the inspector lets people set on each service. The Terraform generator
+// (services/shared/tfgen) reads the same keys: change both together.
 
-export type FieldType = "text" | "number" | "select" | "boolean" | "color";
+export type FieldType = "text" | "number" | "select" | "boolean" | "color" | "textarea";
 
 export interface ConfigField {
   type: FieldType;
@@ -13,6 +13,8 @@ export interface ConfigField {
   max?: number;
   placeholder?: string;
   hint?: string;
+  // Shown only while another field has this value.
+  showIf?: { field: string; equals: unknown };
 }
 
 export type ServiceSchema = Record<string, ConfigField>;
@@ -31,15 +33,15 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
       type: "select",
       label: "Runtime",
       options: [
-        "nodejs20.x",
-        "nodejs18.x",
+        "nodejs22.x",
+        "nodejs24.x",
+        "python3.13",
         "python3.12",
-        "python3.11",
-        "python3.10",
-        "go1.x",
+        "ruby3.4",
         "java21",
-        "ruby3.3",
+        "provided.al2023",
       ],
+      hint: "Java and provided.al2023 need an uploaded .zip",
     },
     architecture: {
       type: "select",
@@ -90,12 +92,18 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
     apiType: {
       type: "select",
       label: "API type",
-      options: ["REST", "HTTP", "WebSocket"],
+      options: ["HTTP", "REST", "WebSocket"],
+      hint: "Rivo generates HTTP APIs",
     },
     stage: {
       type: "text",
       label: "Stage name",
-      placeholder: "prod",
+      placeholder: "$default",
+      hint: "$default serves the API at the root of its URL",
+    },
+    cors: {
+      type: "boolean",
+      label: "Allow calls from browsers (CORS)",
     },
     authorizationType: {
       type: "select",
@@ -140,7 +148,12 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
     sortKey: {
       type: "text",
       label: "Sort key",
-      placeholder: "createdAt (optional)",
+      placeholder: "Optional, such as createdAt",
+    },
+    sortKeyType: {
+      type: "select",
+      label: "Sort key type",
+      options: ["S — String", "N — Number", "B — Binary"],
     },
     billingMode: {
       type: "select",
@@ -158,6 +171,10 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
     streamEnabled: {
       type: "boolean",
       label: "DynamoDB Streams",
+    },
+    deletionProtection: {
+      type: "boolean",
+      label: "Deletion protection",
     },
     ttlEnabled: {
       type: "boolean",
@@ -223,7 +240,8 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
       label: "Encryption",
       options: ["AES256", "aws:kms", "None"],
     },
-    publicAccess: { type: "boolean", label: "Block public access" },
+    blockPublicAccess: { type: "boolean", label: "Block public access", hint: "Serve public files through CloudFront" },
+    forceDestroy: { type: "boolean", label: "Delete files when the bucket is destroyed" },
   },
 
   ec2: {
@@ -260,9 +278,10 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
       label: "Price class",
       options: ["PriceClass_100", "PriceClass_200", "PriceClass_All"],
     },
-    httpVersion: { type: "select", label: "HTTP version", options: ["http2", "http1.1", "http2and3"] },
+    httpVersion: { type: "select", label: "HTTP version", options: ["http2", "http2and3", "http3", "http1.1"] },
     defaultRootObject: { type: "text", label: "Default root object", placeholder: "index.html" },
     compress: { type: "boolean", label: "Compress objects automatically" },
+    spa: { type: "boolean", label: "Single-page app", hint: "Unknown paths serve the root object, for client-side routing" },
   },
 
   rds: {
@@ -334,5 +353,26 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
       options: ["email", "sqs", "lambda", "http", "https"],
     },
     fifo: { type: "boolean", label: "FIFO topic" },
+  },
+
+  eventbridge: {
+    name: { type: "text", label: "Rule name", required: true, placeholder: "nightly-report" },
+    trigger: { type: "select", label: "Runs on", options: ["schedule", "pattern"], hint: "A schedule, or events that match a pattern" },
+    schedule: {
+      type: "text",
+      label: "Schedule",
+      placeholder: "rate(5 minutes)",
+      hint: "rate(5 minutes) or cron(0 12 * * ? *)",
+      showIf: { field: "trigger", equals: "schedule" },
+    },
+    eventPattern: {
+      type: "textarea",
+      label: "Event pattern",
+      placeholder: '{"source": ["shop.orders"]}',
+      hint: "JSON. Functions connected to this rule can send matching events",
+      showIf: { field: "trigger", equals: "pattern" },
+    },
+    description: { type: "text", label: "Description" },
+    enabled: { type: "boolean", label: "Enabled" },
   },
 };

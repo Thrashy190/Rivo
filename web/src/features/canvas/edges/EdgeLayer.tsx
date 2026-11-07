@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from "react";
 import type { CanvasNode, CanvasEdge } from "../useCanvas";
+import { connectionColor, connectionLabel, resolveConnection } from "../connections";
 import { SERVICE_NODE_WIDTH, SERVICE_NODE_HEIGHT } from "../nodes/ServiceNode";
 
 // ─── Port position helpers ────────────────────────────────────────────────────
@@ -72,19 +73,8 @@ function getMidpoint(
   return bezierMidpoint(sx, sy, tx, ty);
 }
 
-// ─── Method colors ────────────────────────────────────────────────────────────
-
-const METHOD_HEX: Record<string, { base: string; light: string }> = {
-  GET:    { base: "#10b981", light: "#6ee7b7" },
-  POST:   { base: "#3b82f6", light: "#93c5fd" },
-  PUT:    { base: "#f59e0b", light: "#fcd34d" },
-  PATCH:  { base: "#8b5cf6", light: "#c4b5fd" },
-  DELETE: { base: "#ef4444", light: "#fca5a5" },
-  ANY:    { base: "#6366f1", light: "#a5b4fc" },
-};
-
-function methodColor(method?: string) {
-  return METHOD_HEX[method ?? ""] ?? METHOD_HEX.ANY;
+function markerId(color: string) {
+  return `arrow-${color.replace("#", "")}`;
 }
 
 // ─── EdgeLayer ────────────────────────────────────────────────────────────────
@@ -97,6 +87,7 @@ interface EdgeLayerProps {
   edgeStyle: "curved" | "straight" | "orthogonal";
   selectedEdgeId: string | null;
   animated: boolean;
+  readOnly?: boolean;
   onEdgeSelect: (edgeId: string | null) => void;
   onEdgeRemove: (edgeId: string) => void;
 }
@@ -109,6 +100,7 @@ export function EdgeLayer({
   edgeStyle,
   selectedEdgeId,
   animated,
+  readOnly = false,
   onEdgeSelect,
   onEdgeRemove,
 }: EdgeLayerProps) {
@@ -149,14 +141,7 @@ export function EdgeLayer({
 
         // Update delete button + route label position
         const mid = getMidpoint(src.x, src.y, tgt.x, tgt.y, edgeStyle);
-        if (refs.deleteBtn) {
-          if (selectedEdgeId === edge.id) {
-            refs.deleteBtn.setAttribute("transform", `translate(${mid.x}, ${mid.y})`);
-            refs.deleteBtn.style.display = "";
-          } else {
-            refs.deleteBtn.style.display = "none";
-          }
-        }
+        refs.deleteBtn?.setAttribute("transform", `translate(${mid.x}, ${mid.y})`);
         if (refs.labelG) {
           refs.labelG.setAttribute("transform", `translate(${mid.x}, ${mid.y})`);
         }
@@ -192,6 +177,11 @@ export function EdgeLayer({
     return getMidpoint(ports.src.x, ports.src.y, ports.tgt.x, ports.tgt.y, edgeStyle);
   };
 
+  const colors = [...new Set(edges.flatMap((e) => {
+    const c = resolveConnection(e, nodes);
+    return c ? [connectionColor(c)] : [];
+  }))];
+
   const connectingD = connecting
     ? buildPath(connecting.fromPos.x, connecting.fromPos.y, connecting.toPos.x, connecting.toPos.y)
     : "";
@@ -203,16 +193,13 @@ export function EdgeLayer({
       style={{ zIndex: 2, width: "100%", height: "100%" }}
     >
       <defs>
-        {Object.entries(METHOD_HEX).flatMap(([method, colors]) => [
-          <marker key={`arrow-${method}`} id={`arrow-${method}`} markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
-            <path d="M0 0 L0 6 L7 3 z" fill={colors.base} fillOpacity="0.9" />
-          </marker>,
-          <marker key={`arrow-${method}-sel`} id={`arrow-${method}-sel`} markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
-            <path d="M0 0 L0 6 L7 3 z" fill={colors.light} fillOpacity="1" />
-          </marker>,
-        ])}
-        <marker id="arrow-dim" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
-          <path d="M0 0 L0 6 L7 3 z" fill="#6366f1" fillOpacity="0.35" />
+        {colors.map((color) => (
+          <marker key={color} id={markerId(color)} markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M0 0.5 L7 4 L0 7.5 z" fill={color} />
+          </marker>
+        ))}
+        <marker id="arrow-dim" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+          <path d="M0 0.5 L7 4 L0 7.5 z" fill="#6366f1" fillOpacity="0.6" />
         </marker>
 
         <filter id="edge-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -222,7 +209,7 @@ export function EdgeLayer({
 
         <style>{`
           @keyframes edge-dash-flow {
-            from { stroke-dashoffset: 24; }
+            from { stroke-dashoffset: 32; }
             to   { stroke-dashoffset: 0; }
           }
         `}</style>
@@ -232,11 +219,14 @@ export function EdgeLayer({
       {/* eslint-disable-next-line react-hooks/refs */}
       {edges.map((edge) => {
         const d = computeD(edge);
-        if (!d) return null;
+        const conn = resolveConnection(edge, nodes);
+        if (!d || !conn) return null;
         const isSelected = selectedEdgeId === edge.id;
         const mid = computeMid(edge);
-
-        const mColor = methodColor(edge.config?.method);
+        const color = connectionColor(conn);
+        const label = connectionLabel(conn);
+        const dashed = conn.kind === "unsupported";
+        const labelWidth = label.length * 6.2 + 16;
 
         return (
           <g key={edge.id} className="pointer-events-auto">
@@ -249,16 +239,15 @@ export function EdgeLayer({
                 else pathRefs.current.set(edge.id, { base: el, flow: el, hit: el, deleteBtn: null, labelG: null });
               }}
               d={d}
-              stroke={mColor.base}
-              strokeWidth={isSelected ? 2 : 1.5}
-              strokeOpacity={isSelected ? 0.7 : 0.35}
+              stroke={color}
+              strokeWidth={isSelected ? 2.25 : 1.5}
+              strokeOpacity={isSelected ? 1 : dashed ? 0.5 : 0.75}
+              strokeDasharray={dashed ? "4 5" : undefined}
               fill="none"
-              markerEnd={isSelected
-                ? `url(#arrow-${edge.config?.method ?? "ANY"}-sel)`
-                : `url(#arrow-${edge.config?.method ?? "ANY"})`}
+              markerEnd={`url(#${markerId(color)})`}
             />
 
-            {/* 2. Animated flow dashes */}
+            {/* 2. Animated flow, when animations are on */}
             <path
               ref={(el) => {
                 if (!el) return;
@@ -266,13 +255,14 @@ export function EdgeLayer({
                 if (existing) existing.flow = el;
               }}
               d={d}
-              stroke={isSelected ? mColor.light : mColor.base}
-              strokeWidth={isSelected ? 2 : 1.5}
+              stroke={color}
+              strokeWidth={isSelected ? 2.25 : 1.5}
               fill="none"
-              strokeDasharray="6 8"
+              strokeDasharray="2 14"
               strokeLinecap="round"
               style={{
-                animation: animated ? "edge-dash-flow 0.7s linear infinite" : "none",
+                display: animated && !dashed ? "" : "none",
+                animation: "edge-dash-flow 0.9s linear infinite",
                 filter: "url(#edge-glow)",
               }}
             />
@@ -286,76 +276,69 @@ export function EdgeLayer({
               }}
               d={d}
               stroke="transparent"
-              strokeWidth="14"
+              strokeWidth="16"
               fill="none"
               className="cursor-pointer"
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 onEdgeSelect(isSelected ? null : edge.id);
               }}
             />
 
-            {/* 4. Route label (visible when edge has method+path configured) */}
-            {(edge.config?.method || edge.config?.path) && (() => {
-              const label = `${edge.config?.method ?? "?"}  ${edge.config?.path ?? "/"}`;
-              return (
-                <g
-                  ref={(el) => {
-                    const existing = pathRefs.current.get(edge.id);
-                    if (existing) existing.labelG = el;
-                  }}
-                  transform={`translate(${computeMid(edge).x}, ${computeMid(edge).y})`}
-                  style={{ pointerEvents: "none" }}
+            {/* 4. What the connection does */}
+            {label && (
+              <g
+                ref={(el) => {
+                  const existing = pathRefs.current.get(edge.id);
+                  if (existing) existing.labelG = el;
+                }}
+                transform={`translate(${mid.x}, ${mid.y})`}
+                style={{ pointerEvents: "none" }}
+              >
+                <rect
+                  x={-labelWidth / 2}
+                  y="-10"
+                  width={labelWidth}
+                  height="20"
+                  rx="10"
+                  fill="var(--theme-popover)"
+                  stroke={color}
+                  strokeOpacity={isSelected ? 1 : 0.55}
+                />
+                <text
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize="10"
+                  fontWeight="600"
+                  fontFamily="ui-monospace, SFMono-Regular, monospace"
+                  fill={color}
+                  style={{ userSelect: "none" }}
                 >
-                  <rect
-                    x={-(label.length * 3.5 + 8)}
-                    y="-9"
-                    width={label.length * 7 + 16}
-                    height="18"
-                    rx="4"
-                    fill="#1e1b2e"
-                    stroke={mColor.base}
-                    strokeWidth="1"
-                    strokeOpacity={isSelected ? 0.9 : 0.55}
-                  />
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontSize="9"
-                    fontFamily="ui-monospace, monospace"
-                    fill={isSelected ? mColor.light : mColor.base}
-                    style={{ userSelect: "none" }}
-                  >
-                    {label}
-                  </text>
-                </g>
-              );
-            })()}
+                  {label}
+                </text>
+              </g>
+            )}
 
-            {/* 5. Delete button at midpoint (visible when selected) */}
+            {/* 5. Delete button beside the label, when selected */}
             <g
               ref={(el) => {
                 const existing = pathRefs.current.get(edge.id);
                 if (existing) existing.deleteBtn = el;
               }}
               transform={`translate(${mid.x}, ${mid.y})`}
-              style={{ display: isSelected ? "" : "none", cursor: "pointer" }}
+              style={{ display: isSelected && !readOnly ? "" : "none", cursor: "pointer" }}
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 onEdgeRemove(edge.id);
               }}
             >
-              <circle r="9" fill="#1e1b2e" stroke="#6366f1" strokeWidth="1.5" />
-              <text
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize="11"
-                fontFamily="system-ui, sans-serif"
-                fill="#a5b4fc"
-                style={{ userSelect: "none", pointerEvents: "none" }}
-              >
-                ×
-              </text>
+              <g transform={`translate(${label ? labelWidth / 2 + 14 : 0}, 0)`}>
+                <circle r="9" fill="var(--theme-popover)" stroke="#ef4444" strokeWidth="1.5" />
+                <path d="M-3 -3 L3 3 M3 -3 L-3 3" stroke="#ef4444" strokeWidth="1.6" strokeLinecap="round" />
+                <title>Remove connection</title>
+              </g>
             </g>
           </g>
         );
@@ -367,8 +350,8 @@ export function EdgeLayer({
           ref={(el) => { connectingPathRef.current = el; }}
           d={connectingD}
           stroke="#6366f1"
-          strokeWidth="1.5"
-          strokeOpacity="0.45"
+          strokeWidth="1.75"
+          strokeOpacity="0.7"
           strokeDasharray="6 5"
           fill="none"
           markerEnd="url(#arrow-dim)"

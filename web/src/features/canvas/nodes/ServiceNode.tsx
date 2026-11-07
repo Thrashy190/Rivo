@@ -1,43 +1,43 @@
 import { useEffect, useRef } from "react";
-import { AWS_SERVICE_CATEGORIES } from "../aws-services";
+import { getServiceIcon } from "../aws-services";
+import type { Issue } from "../readiness";
 import type { CanvasNode, Viewport } from "../useCanvas";
 
-export const SERVICE_NODE_WIDTH = 144;
-export const SERVICE_NODE_HEIGHT = 76;
-
-function getServiceIcon(type: string) {
-  for (const cat of AWS_SERVICE_CATEGORIES) {
-    const svc = cat.services.find((s) => s.id === type);
-    if (svc) return svc.icon;
-  }
-  return null;
-}
+export const SERVICE_NODE_WIDTH = 224;
+export const SERVICE_NODE_HEIGHT = 72;
 
 interface ServiceNodeProps {
   node: CanvasNode;
   viewport: Viewport;
   selected?: boolean;
+  // A line is being drawn from another node: this one can receive it.
+  connectable?: boolean;
+  summary?: string;
+  issues?: Issue[];
   parentLabel?: string;
+  readOnly?: boolean;
   onMove: (id: string, position: { x: number; y: number }) => void;
   onDragEnd?: (id: string, position: { x: number; y: number }) => void;
   onRemove: (id: string) => void;
   onNodeClick?: (id: string) => void;
-  onPortMouseDown?: (
-    nodeId: string,
-    side: "left" | "right",
-    portPos: { x: number; y: number }
-  ) => void;
+  onConnectDrop?: (id: string) => void;
+  onPortMouseDown?: (nodeId: string, side: "left" | "right", portPos: { x: number; y: number }) => void;
 }
 
 export function ServiceNode({
   node,
   viewport,
   selected = false,
+  connectable = false,
+  summary,
+  issues = [],
   parentLabel,
+  readOnly = false,
   onMove,
   onDragEnd,
   onRemove,
   onNodeClick,
+  onConnectDrop,
   onPortMouseDown,
 }: ServiceNodeProps) {
   const dragState = useRef<{
@@ -55,21 +55,16 @@ export function ServiceNode({
       if (!dragState.current.hasMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
         dragState.current.hasMoved = true;
       }
-      const newPos = {
-        x: dragState.current.startPos.x + dx,
-        y: dragState.current.startPos.y + dy,
-      };
+      if (!dragState.current.hasMoved) return;
+      const newPos = { x: dragState.current.startPos.x + dx, y: dragState.current.startPos.y + dy };
       dragState.current.lastPos = newPos;
       onMove(node.id, newPos);
     };
 
     const onMouseUp = () => {
       if (dragState.current) {
-        if (!dragState.current.hasMoved) {
-          onNodeClick?.(node.id);
-        } else {
-          onDragEnd?.(node.id, dragState.current.lastPos);
-        }
+        if (!dragState.current.hasMoved) onNodeClick?.(node.id);
+        else onDragEnd?.(node.id, dragState.current.lastPos);
       }
       dragState.current = null;
       document.body.style.cursor = "";
@@ -84,6 +79,7 @@ export function ServiceNode({
   }, [node.id, viewport.zoom, onMove, onNodeClick, onDragEnd]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
     e.stopPropagation();
     dragState.current = {
       startMouse: { x: e.clientX, y: e.clientY },
@@ -97,86 +93,94 @@ export function ServiceNode({
   const handlePortMouseDown = (e: React.MouseEvent, side: "left" | "right") => {
     e.stopPropagation();
     e.preventDefault();
-    const portX = side === "left"
-      ? node.position.x
-      : node.position.x + SERVICE_NODE_WIDTH;
-    const portY = node.position.y + SERVICE_NODE_HEIGHT / 2;
-    onPortMouseDown?.(node.id, side, { x: portX, y: portY });
+    const portX = side === "left" ? node.position.x : node.position.x + SERVICE_NODE_WIDTH;
+    onPortMouseDown?.(node.id, side, { x: portX, y: node.position.y + SERVICE_NODE_HEIGHT / 2 });
   };
 
-  const icon = getServiceIcon(node.type);
+  const name = String(node.config.name ?? node.id);
+  const skipped = issues.some((i) => i.level === "skipped");
+  const todo = !skipped && issues.length > 0;
 
   return (
     <div
       data-canvas-node
+      data-node-id={node.id}
+      role="button"
+      aria-label={`${node.label} ${name}`}
+      aria-pressed={selected}
       onMouseDown={handleMouseDown}
+      onMouseUp={() => onConnectDrop?.(node.id)}
       className="absolute select-none group"
-      style={{
-        left: node.position.x,
-        top: node.position.y,
-        width: SERVICE_NODE_WIDTH,
-        zIndex: 3,
-      }}
+      style={{ left: node.position.x, top: node.position.y, width: SERVICE_NODE_WIDTH, zIndex: selected ? 4 : 3 }}
     >
       <div
         className={[
-          "relative bg-card border rounded-xl p-3 w-36 cursor-grab active:cursor-grabbing transition-colors shadow-lg shadow-black/20",
+          "relative flex items-center gap-3 px-3 rounded-xl border bg-popover cursor-grab active:cursor-grabbing",
+          "shadow-[0_1px_2px_rgba(0,0,0,0.12),0_8px_24px_-12px_rgba(0,0,0,0.35)] transition-[border-color,box-shadow] duration-150",
           selected
-            ? "border-indigo-500 shadow-indigo-500/20"
-            : "border-edge hover:border-raised",
+            ? "border-indigo-500 ring-4 ring-indigo-500/15"
+            : connectable
+              ? "border-edge hover:border-indigo-400 hover:ring-4 hover:ring-indigo-500/15"
+              : "border-edge hover:border-ink-dim/50",
+          skipped ? "border-dashed" : "",
         ].join(" ")}
+        style={{ height: SERVICE_NODE_HEIGHT }}
       >
-        {/* Remove button */}
-        <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={() => onRemove(node.id)}
-          className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-raised border border-edge text-ink-dim hover:text-ink transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs leading-none z-10"
-        >
-          ×
-        </button>
+        <div className={["w-10 h-10 rounded-lg overflow-hidden shrink-0", skipped ? "opacity-60 grayscale-[35%]" : ""].join(" ")}>
+          {getServiceIcon(node.type)}
+        </div>
 
-        {/* Icon */}
-        <div className="w-10 h-10 rounded-lg overflow-hidden mb-2.5">{icon}</div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold text-ink leading-tight truncate">{name}</p>
+          <p className="text-[11px] text-ink-dim leading-tight truncate mt-1">{summary ?? node.label}</p>
+        </div>
 
-        {/* Name (title) */}
-        <p className="text-xs font-semibold text-ink leading-snug truncate">
-          {String(node.config.name ?? node.id)}
-        </p>
+        {(todo || skipped) && (
+          <span
+            title={issues.map((i) => i.message).join("\n")}
+            className={[
+              "absolute top-2 right-2 w-2 h-2 rounded-full",
+              skipped ? "bg-ink-dim/50" : "bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.18)]",
+            ].join(" ")}
+          />
+        )}
 
-        {/* Runtime or service type (subtitle) */}
-        <p className="text-[10px] text-ink-dim truncate font-mono mt-0.5">
-          {node.config.runtime
-            ? String(node.config.runtime)
-            : node.label}
-        </p>
+        {!readOnly && (
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => onRemove(node.id)}
+            aria-label={`Remove ${name}`}
+            className="absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full bg-popover border border-edge text-ink-dim hover:text-red-500 hover:border-red-500/40 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center z-10"
+          >
+            <svg viewBox="0 0 10 10" className="w-2 h-2" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M1 1l8 8M9 1L1 9" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      {/* Parent container badge */}
       {parentLabel && (
         <div className="absolute -bottom-5 left-0 right-0 flex justify-center pointer-events-none">
-          <span className="text-[9px] font-mono text-green-400/80 bg-green-900/30 border border-green-600/30 px-1.5 py-0.5 rounded-full truncate max-w-full">
-            ↳ {parentLabel}
+          <span className="text-[10px] text-ink-dim bg-page/80 border border-edge px-1.5 py-px rounded-full truncate max-w-full">
+            in {parentLabel}
           </span>
         </div>
       )}
 
-      {/* Port dot — left */}
-      <div
-        onMouseDown={(e) => handlePortMouseDown(e, "left")}
-        className="absolute -left-2 w-4 h-4 rounded-full border-2 border-indigo-500 bg-page opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:scale-125 transition-all cursor-crosshair z-20 flex items-center justify-center"
-        style={{ top: SERVICE_NODE_HEIGHT / 2 - 8 }}
-      >
-        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-      </div>
-
-      {/* Port dot — right */}
-      <div
-        onMouseDown={(e) => handlePortMouseDown(e, "right")}
-        className="absolute -right-2 w-4 h-4 rounded-full border-2 border-indigo-500 bg-page opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:scale-125 transition-all cursor-crosshair z-20 flex items-center justify-center"
-        style={{ top: SERVICE_NODE_HEIGHT / 2 - 8 }}
-      >
-        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-      </div>
+      {!readOnly &&
+        (["left", "right"] as const).map((side) => (
+          <div
+            key={side}
+            onMouseDown={(e) => handlePortMouseDown(e, side)}
+            title="Drag to connect"
+            className={[
+              "absolute w-3.5 h-3.5 rounded-full border-2 border-indigo-500 bg-page z-20 cursor-crosshair",
+              "opacity-0 group-hover:opacity-100 hover:scale-125 transition-[opacity,transform] duration-150",
+              side === "left" ? "-left-[7px]" : "-right-[7px]",
+            ].join(" ")}
+            style={{ top: SERVICE_NODE_HEIGHT / 2 - 7 }}
+          />
+        ))}
     </div>
   );
 }

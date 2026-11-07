@@ -38,6 +38,18 @@ export interface Version {
 
 export const DIAGRAM_FORMAT = "canvas/1";
 
+// Terraform generated from a diagram (services/project/export-terraform).
+export interface TerraformExport {
+  files: { path: string; content: string }[];
+  packages: { path: string; packageId: string }[];
+  warnings: { nodeId?: string; edgeId?: string; message: string }[];
+  // False when the files were too large to show; the .zip has them all.
+  preview: boolean;
+  // A short-lived link to the .zip.
+  url: string;
+  fileName: string;
+}
+
 const ACCENT_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6"];
 
 export function projectAccentColor(id: string): string {
@@ -89,4 +101,8 @@ export const projectsService = {
 
   createVersion: (workspaceId: string, projectId: string, note: string) =>
     api.post<Version>(`${one(workspaceId, projectId)}/versions`, { note }),
+
+  // Generates Terraform from the saved draft, or from a version.
+  exportTerraform: (workspaceId: string, projectId: string, version?: number) =>
+    api.post<TerraformExport>(`${one(workspaceId, projectId)}/terraform`, version ? { version } : {}),
 };

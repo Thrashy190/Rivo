@@ -1,22 +1,30 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { CodeEditor, type CodeLanguage } from "../../../components/CodeEditor/CodeEditor";
-import { AWS_SERVICE_CATEGORIES } from "../aws-services";
+import { CodeEditor } from "../../../components/CodeEditor/CodeEditor";
+import { getServiceIcon } from "../aws-services";
 import type { CanvasNode } from "../useCanvas";
 import { MAX_INLINE_CODE_BYTES } from "../lambdaSource";
 
-const RUNTIME_LANGUAGE: Record<string, CodeLanguage> = {
-  "nodejs20.x": "javascript",
-  "nodejs18.x": "javascript",
-  "python3.12": "python",
-  "python3.11": "python",
-  "python3.10": "python",
-  "go1.x": "go",
-  java21: "java",
-  "ruby3.3": "ruby",
-};
+type LambdaLanguage = "javascript" | "typescript" | "python" | "go" | "java" | "ruby";
 
-const DEFAULT_CODE: Record<CodeLanguage, string> = {
+function runtimeLanguage(runtime: string): LambdaLanguage {
+  if (runtime.startsWith("python")) return "python";
+  if (runtime.startsWith("ruby")) return "ruby";
+  if (runtime.startsWith("java")) return "java";
+  if (runtime.startsWith("go") || runtime.startsWith("provided")) return "go";
+  return "javascript";
+}
+
+// The file the handler points at: index.handler runs index.js, index.py or
+// index.rb, as the Terraform generator writes it.
+function handlerFile(handler: string, language: LambdaLanguage): string {
+  if (language === "go") return "main.go";
+  if (language === "java") return "Handler.java";
+  const module = handler.includes(".") ? handler.slice(0, handler.lastIndexOf(".")) : "index";
+  return `${module}${language === "python" ? ".py" : language === "ruby" ? ".rb" : ".js"}`;
+}
+
+const DEFAULT_CODE: Record<LambdaLanguage, string> = {
   javascript: `exports.handler = async (event) => {
   console.log('Event:', JSON.stringify(event, null, 2));
   return {
@@ -77,14 +85,6 @@ public class Handler implements RequestHandler<Object, String> {
 end`,
 };
 
-function getServiceIcon(type: string) {
-  for (const cat of AWS_SERVICE_CATEGORIES) {
-    const svc = cat.services.find((s) => s.id === type);
-    if (svc) return svc.icon;
-  }
-  return null;
-}
-
 interface CodeModalProps {
   node: CanvasNode;
   // Roles that cannot change the project read the code without saving it.
@@ -94,8 +94,8 @@ interface CodeModalProps {
 }
 
 export function CodeModal({ node, readOnly = false, onSave, onClose }: CodeModalProps) {
-  const runtime = String(node.config.runtime ?? "nodejs20.x");
-  const language: CodeLanguage = RUNTIME_LANGUAGE[runtime] ?? "javascript";
+  const runtime = String(node.config.runtime ?? "nodejs22.x");
+  const language = runtimeLanguage(runtime);
   const [initial] = useState(() =>
     typeof node.config.code === "string" ? node.config.code : DEFAULT_CODE[language],
   );
@@ -172,7 +172,7 @@ export function CodeModal({ node, readOnly = false, onSave, onClose }: CodeModal
           <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M7 1H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4L7 1z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          {language === "javascript" ? "index.js" : language === "python" ? "handler.py" : language === "go" ? "main.go" : "Handler.java"}
+          {handlerFile(String(node.config.handler ?? "index.handler"), language)}
         </div>
       </div>
 

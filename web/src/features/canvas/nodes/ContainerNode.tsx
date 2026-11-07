@@ -1,37 +1,12 @@
 import { useEffect, useRef } from "react";
-import { AWS_SERVICE_CATEGORIES } from "../aws-services";
+import { getServiceIcon } from "../aws-services";
 import type { CanvasNode, Viewport } from "../useCanvas";
 
-function getServiceIcon(type: string) {
-  for (const cat of AWS_SERVICE_CATEGORIES) {
-    const svc = cat.services.find((s) => s.id === type);
-    if (svc) return svc.icon;
-  }
-  return null;
-}
-
-const CONTAINER_STYLES: Record<
-  string,
-  { border: string; bg: string; label: string; defaultBorderColor: string }
-> = {
-  region: {
-    border: "border-dashed border-2",
-    bg: "bg-raised/20",
-    label: "text-ink-dim",
-    defaultBorderColor: "rgba(113,113,122,0.6)", // zinc-500/60
-  },
-  vpc: {
-    border: "border-2",
-    bg: "bg-green-950/20",
-    label: "text-green-400",
-    defaultBorderColor: "rgba(22,163,74,0.6)", // green-600/60
-  },
-  subnet: {
-    border: "border border-dashed",
-    bg: "bg-green-900/10",
-    label: "text-green-500",
-    defaultBorderColor: "rgba(34,197,94,0.5)", // green-500/50
-  },
+// Groups are drawn with a tinted border and a faint fill of the same colour.
+const CONTAINER_STYLES: Record<string, { border: string; defaultBorderColor: string }> = {
+  region: { border: "border-dashed border-2", defaultBorderColor: "#7D8998" },
+  vpc: { border: "border-2", defaultBorderColor: "#8C4FFF" },
+  subnet: { border: "border border-dashed", defaultBorderColor: "#7AA116" },
 };
 
 const HANDLE_SIZE = 10;
@@ -179,8 +154,8 @@ export function ContainerNode({
       style={{ left: node.position.x, top: node.position.y, width, height, zIndex: 1 }}
     >
       <div
-        className={`relative w-full h-full rounded-xl transition-shadow ${styles.border} ${styles.bg} ${highlighted ? "ring-2 ring-indigo-500/60" : ""}`}
-        style={{ borderColor }}
+        className={`relative w-full h-full rounded-2xl transition-shadow ${styles.border} ${highlighted ? "ring-4 ring-indigo-500/25" : ""}`}
+        style={{ borderColor: `color-mix(in srgb, ${borderColor} 70%, transparent)`, backgroundColor: `color-mix(in srgb, ${borderColor} 5%, transparent)` }}
       >
         {/* Header bar (drag handle) */}
         <div
@@ -190,11 +165,11 @@ export function ContainerNode({
           {icon && (
             <div className="w-5 h-5 rounded overflow-hidden shrink-0">{icon}</div>
           )}
-          <span className={`text-xs font-semibold ${styles.label} truncate`}>
-            {node.label}
-          </span>
-          <span className="text-[10px] text-ink-dim font-mono ml-1 truncate opacity-60">
+          <span className="text-xs font-semibold text-ink truncate">
             {String(node.config.name ?? node.id)}
+          </span>
+          <span className="text-[10px] text-ink-dim truncate">
+            {node.type === "region" ? String(node.config.region ?? node.label) : node.label}
           </span>
 
           <button

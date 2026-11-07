@@ -16,10 +16,30 @@ export interface CanvasEdge {
   id: string;
   sourceId: string;
   targetId: string;
-  config?: {
-    method?: string;
-    path?:   string;
-  };
+  config?: EdgeConfig;
+}
+
+// Settings of a connection. Which ones apply depends on what it joins (see
+// connections.ts).
+export interface EdgeConfig {
+  // API Gateway → Lambda. Older diagrams have one method and path instead.
+  routes?: Route[];
+  method?: string;
+  path?: string;
+  // Lambda ↔ DynamoDB or S3.
+  access?: "read" | "write" | "readwrite";
+}
+
+export interface Route {
+  method: string;
+  path: string;
+}
+
+// A group of nodes and their connections, such as a blueprint. Links refer to
+// nodes by their position in the list.
+export interface CanvasGraph {
+  nodes: { type: string; offset: { x: number; y: number }; config?: Record<string, unknown> }[];
+  links: { from: number; to: number; config?: EdgeConfig }[];
 }
 
 export interface Viewport {
@@ -47,19 +67,20 @@ const SERVICE_LABELS: Record<string, string> = {
   "secrets-manager": "Secrets Manager",
   "elastic-cache": "ElastiCache",
   cloudfront: "CloudFront",
+  eventbridge: "EventBridge Rule",
 };
 
 const CONTAINER_TYPES = new Set(["region", "vpc", "subnet"]);
 
 const DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
-  lambda: { runtime: "nodejs20.x", memory: 128, timeout: 30, handler: "index.handler" },
-  "api-gateway": { type: "REST", stage: "prod", authorizationType: "NONE" },
+  lambda: { runtime: "nodejs22.x", memory: 128, timeout: 30, handler: "index.handler", architecture: "arm64" },
+  "api-gateway": { apiType: "HTTP", stage: "$default", authorizationType: "NONE", cors: true },
   dynamodb: { billingMode: "PAY_PER_REQUEST", partitionKey: "id", partitionKeyType: "S" },
   region: { provider: "aws", region: "us-east-1" },
   vpc: { cidr: "10.0.0.0/16", enableDnsHostnames: true },
   subnet: { cidr: "10.0.1.0/24", type: "public", availabilityZone: "us-east-1a" },
   ec2: { instanceType: "t3.micro", keyPair: "" },
-  s3: { versioning: false, encryption: "AES256", publicAccess: false },
+  s3: { versioning: false, encryption: "AES256", blockPublicAccess: true, forceDestroy: false },
   rds: { engine: "postgres", instanceClass: "db.t3.micro", multiAZ: false },
   sqs: { messageRetentionPeriod: 86400, visibilityTimeout: 30, fifo: false },
   sns: { protocol: "email" },
@@ -69,7 +90,8 @@ const DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
   "load-balancer": { type: "application", scheme: "internet-facing" },
   "secrets-manager": { rotationEnabled: false },
   "elastic-cache": { engine: "redis", nodeType: "cache.t3.micro" },
-  cloudfront: { priceClass: "PriceClass_100", httpVersion: "http2" },
+  cloudfront: { priceClass: "PriceClass_100", httpVersion: "http2and3", defaultRootObject: "index.html", compress: true, spa: false },
+  eventbridge: { trigger: "schedule", schedule: "rate(5 minutes)", enabled: true },
 };
 
 const DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
@@ -79,6 +101,31 @@ const DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
 };
 
 let nodeCounter = 0;
+
+function newNode(
+  serviceId: string,
+  position: { x: number; y: number },
+  config?: Record<string, unknown>,
+  size?: { width: number; height: number },
+): CanvasNode {
+  nodeCounter += 1;
+  const id = `${serviceId}-${nodeCounter}`;
+  const isContainer = CONTAINER_TYPES.has(serviceId);
+  const baseSize = size ?? (isContainer ? DEFAULT_SIZES[serviceId] : undefined);
+  return {
+    id,
+    type: serviceId,
+    label: SERVICE_LABELS[serviceId] ?? serviceId,
+    position,
+    config: { name: `${serviceId}-${nodeCounter}`, ...DEFAULT_CONFIGS[serviceId], ...config },
+    variant: isContainer ? "container" : "service",
+    ...(baseSize ? { size: baseSize } : {}),
+  };
+}
+
+export function serviceLabel(type: string): string {
+  return SERVICE_LABELS[type] ?? type;
+}
 
 export function useCanvas() {
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
@@ -100,28 +147,30 @@ export function useCanvas() {
     (
       serviceId: string,
       position: { x: number; y: number },
-      externalConfig?: Record<string, unknown>,
-      externalSize?: { width: number; height: number },
+      config?: Record<string, unknown>,
+      size?: { width: number; height: number },
     ) => {
-      nodeCounter += 1;
-      const id = `${serviceId}-${nodeCounter}`;
-      const isContainer = CONTAINER_TYPES.has(serviceId);
-      // externalConfig (from API) takes precedence over static DEFAULT_CONFIGS
-      const baseConfig = externalConfig ?? DEFAULT_CONFIGS[serviceId] ?? {};
-      const baseSize   = externalSize   ?? (isContainer ? DEFAULT_SIZES[serviceId] : undefined);
-      const node: CanvasNode = {
-        id,
-        type: serviceId,
-        label: SERVICE_LABELS[serviceId] ?? serviceId,
-        position,
-        config: { name: `${serviceId}-${nodeCounter}`, ...baseConfig },
-        variant: isContainer ? "container" : "service",
-        ...(baseSize ? { size: baseSize } : {}),
-      };
+      const node = newNode(serviceId, position, config, size);
       setNodes((prev) => [...prev, node]);
+      return node.id;
     },
     []
   );
+
+  // Adds a group of connected nodes around `origin`. Returns the new IDs.
+  const insertGraph = useCallback((graph: CanvasGraph, origin: { x: number; y: number }) => {
+    const created = graph.nodes.map((n) =>
+      newNode(n.type, { x: origin.x + n.offset.x, y: origin.y + n.offset.y }, n.config),
+    );
+    const links: CanvasEdge[] = graph.links.map((l) => {
+      const sourceId = created[l.from].id;
+      const targetId = created[l.to].id;
+      return { id: `edge-${sourceId}__${targetId}`, sourceId, targetId, ...(l.config ? { config: l.config } : {}) };
+    });
+    setNodes((prev) => [...prev, ...created]);
+    setEdges((prev) => [...prev, ...links]);
+    return created.map((n) => n.id);
+  }, []);
 
   const moveNode = useCallback(
     (nodeId: string, position: { x: number; y: number }) => {
@@ -174,6 +223,7 @@ export function useCanvas() {
   const addEdge = useCallback((sourceId: string, targetId: string) => {
     if (sourceId === targetId) return;
     const id = `edge-${sourceId}__${targetId}`;
+    // Two connections between the same nodes would mean the same thing.
     setEdges((prev) => {
       const exists = prev.some(
         (e) =>
@@ -211,6 +261,14 @@ export function useCanvas() {
     []
   );
 
+  // Reverses a connection, for those where direction matters (an EventBridge
+  // rule runs a function; a function sends events to a rule's bus).
+  const reverseEdge = useCallback((edgeId: string) => {
+    setEdges((prev) =>
+      prev.map((e) => (e.id === edgeId ? { ...e, sourceId: e.targetId, targetId: e.sourceId } : e)),
+    );
+  }, []);
+
   const toJSON = useCallback(
     (): InfraModel => ({
       version: "1",
@@ -246,6 +304,8 @@ export function useCanvas() {
     addEdge,
     removeEdge,
     updateEdgeConfig,
+    reverseEdge,
+    insertGraph,
     toJSON,
     resetCanvas,
   };

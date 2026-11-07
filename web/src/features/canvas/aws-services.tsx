@@ -71,6 +71,18 @@ function SubnetIcon() {
   );
 }
 
+function EventBridgeIcon() {
+  return (
+    <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
+      <rect width="40" height="40" rx="6" fill="#E7157B" />
+      <circle cx="11" cy="20" r="3.2" stroke="white" strokeWidth="1.8" />
+      <circle cx="29" cy="11.5" r="3.2" stroke="white" strokeWidth="1.8" />
+      <circle cx="29" cy="28.5" r="3.2" stroke="white" strokeWidth="1.8" />
+      <path d="M14.2 20h4.3l7.3-7.2M18.5 20l7.3 7.2" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // ─── Type definitions ─────────────────────────────────────────────────────────
 
 export type ServiceTypeCategory =
@@ -89,15 +101,72 @@ export interface AwsService {
   name: string;
   description: string;
   icon: ReactNode;
-  category: string;
+  // The AWS category colour, used to tint the node.
+  accent: string;
   typeCategory: ServiceTypeCategory;
 }
 
-export interface AwsServiceCategory {
-  id: string;
-  label: string;
-  services: AwsService[];
+// Node types that become Terraform (services/shared/tfgen). The rest can be
+// drawn, and the generator leaves them out with a warning.
+export const GENERATED_TYPES = new Set(["lambda", "api-gateway", "dynamodb", "s3", "cloudfront", "eventbridge"]);
+
+const COMPUTE = "#ED7100";
+const INTEGRATION = "#E7157B";
+const DATABASE = "#C925D1";
+const NETWORK = "#8C4FFF";
+const STORAGE = "#7AA116";
+const SECURITY = "#DD344C";
+const MANAGEMENT = "#E7157B";
+const INFRA = "#7D8998";
+
+// ─── All services ─────────────────────────────────────────────────────────────
+
+export const ALL_SERVICES: AwsService[] = [
+  { id: "lambda",          name: "Lambda",          description: "Run code without servers",            icon: <AwsIcon src={lambdaSvg}      alt="Lambda" />,          accent: COMPUTE,     typeCategory: "serverless" },
+  { id: "api-gateway",     name: "API Gateway",     description: "HTTP APIs in front of functions",     icon: <AwsIcon src={apiGatewaySvg}  alt="API Gateway" />,     accent: INTEGRATION, typeCategory: "serverless" },
+  { id: "eventbridge",     name: "EventBridge",     description: "Schedules and event rules",           icon: <EventBridgeIcon />,                                    accent: INTEGRATION, typeCategory: "serverless" },
+  { id: "dynamodb",        name: "DynamoDB",        description: "Serverless key-value tables",         icon: <AwsIcon src={dynamodbSvg}    alt="DynamoDB" />,        accent: DATABASE,    typeCategory: "database" },
+  { id: "s3",              name: "S3",              description: "Object storage and static files",     icon: <AwsIcon src={s3Svg}          alt="S3" />,              accent: STORAGE,     typeCategory: "storage" },
+  { id: "cloudfront",      name: "CloudFront",      description: "Global CDN for sites and files",      icon: <AwsIcon src={cloudfrontSvg}  alt="CloudFront" />,      accent: NETWORK,     typeCategory: "networking" },
+  { id: "sqs",             name: "SQS",             description: "Message queues",                      icon: <AwsIcon src={sqsSvg}         alt="SQS" />,             accent: INTEGRATION, typeCategory: "messaging" },
+  { id: "sns",             name: "SNS",             description: "Pub/sub notifications",               icon: <AwsIcon src={snsSvg}         alt="SNS" />,             accent: INTEGRATION, typeCategory: "messaging" },
+  { id: "ec2",             name: "EC2",             description: "Virtual machines",                    icon: <AwsIcon src={ec2Svg}         alt="EC2" />,             accent: COMPUTE,     typeCategory: "compute" },
+  { id: "ecs",             name: "ECS",             description: "Containers on Fargate or EC2",        icon: <AwsIcon src={ecsSvg}         alt="ECS" />,             accent: COMPUTE,     typeCategory: "compute" },
+  { id: "load-balancer",   name: "Load Balancer",   description: "Application and network balancers",   icon: <AwsIcon src={albSvg}         alt="Load Balancer" />,   accent: NETWORK,     typeCategory: "networking" },
+  { id: "rds",             name: "RDS",             description: "Managed relational databases",        icon: <AwsIcon src={rdsSvg}         alt="RDS" />,             accent: DATABASE,    typeCategory: "database" },
+  { id: "elastic-cache",   name: "ElastiCache",     description: "Redis and Memcached caches",          icon: <AwsIcon src={elasticacheSvg} alt="ElastiCache" />,     accent: DATABASE,    typeCategory: "database" },
+  { id: "iam-role",        name: "IAM Role",        description: "Permissions for a service",           icon: <AwsIcon src={iamSvg}         alt="IAM" />,             accent: SECURITY,    typeCategory: "security" },
+  { id: "secrets-manager", name: "Secrets Manager", description: "Stored and rotated secrets",          icon: <AwsIcon src={secretsSvg}     alt="Secrets Manager" />, accent: SECURITY,    typeCategory: "security" },
+  { id: "cloudwatch",      name: "CloudWatch",      description: "Logs, metrics and alarms",            icon: <AwsIcon src={cloudwatchSvg}  alt="CloudWatch" />,      accent: MANAGEMENT,  typeCategory: "monitoring" },
+  // Containers group services on the canvas. There is no AWS icon for a Region or Subnet.
+  { id: "region",          name: "AWS Region",      description: "Where the services run",              icon: <RegionIcon />,                                         accent: INFRA,       typeCategory: "container-infra" },
+  { id: "vpc",             name: "VPC",             description: "Isolated virtual network",            icon: <AwsIcon src={vpcSvg}         alt="VPC" />,             accent: NETWORK,     typeCategory: "container-infra" },
+  { id: "subnet",          name: "Subnet",          description: "A range of addresses in a VPC",       icon: <SubnetIcon />,                                         accent: STORAGE,     typeCategory: "container-infra" },
+];
+
+const BY_ID = new Map(ALL_SERVICES.map((s) => [s.id, s]));
+
+export function getService(type: string): AwsService | undefined {
+  return BY_ID.get(type);
 }
+
+export function getServiceIcon(type: string): ReactNode {
+  return BY_ID.get(type)?.icon ?? null;
+}
+
+// ─── By type ──────────────────────────────────────────────────────────────────
+
+const TYPE_CATEGORY_META: { id: ServiceTypeCategory; label: string }[] = [
+  { id: "serverless",      label: "Serverless" },
+  { id: "database",        label: "Database" },
+  { id: "storage",         label: "Storage" },
+  { id: "networking",      label: "Networking" },
+  { id: "messaging",       label: "Messaging" },
+  { id: "compute",         label: "Compute" },
+  { id: "security",        label: "Security" },
+  { id: "monitoring",      label: "Monitoring" },
+  { id: "container-infra", label: "Groups" },
+];
 
 export interface AwsTypeCategory {
   id: ServiceTypeCategory;
@@ -105,103 +174,7 @@ export interface AwsTypeCategory {
   services: AwsService[];
 }
 
-// ─── All services ─────────────────────────────────────────────────────────────
-
-const ALL_SERVICES: AwsService[] = [
-  // Serverless
-  { id: "lambda",        name: "Lambda",        description: "Serverless function execution",        icon: <AwsIcon src={lambdaSvg}      alt="Lambda" />,        category: "serverless",     typeCategory: "serverless" },
-  { id: "api-gateway",   name: "API Gateway",   description: "Managed REST & HTTP APIs",             icon: <AwsIcon src={apiGatewaySvg}  alt="API Gateway" />,   category: "serverless",     typeCategory: "networking" },
-  { id: "dynamodb",      name: "DynamoDB",      description: "Serverless NoSQL database",            icon: <AwsIcon src={dynamodbSvg}    alt="DynamoDB" />,      category: "serverless",     typeCategory: "database" },
-  { id: "sqs",           name: "SQS",           description: "Managed message queues",               icon: <AwsIcon src={sqsSvg}         alt="SQS" />,           category: "serverless",     typeCategory: "messaging" },
-  { id: "sns",           name: "SNS",           description: "Pub/Sub notification service",         icon: <AwsIcon src={snsSvg}         alt="SNS" />,           category: "serverless",     typeCategory: "messaging" },
-  // Compute
-  { id: "ec2",           name: "EC2",           description: "Virtual machine instances",            icon: <AwsIcon src={ec2Svg}         alt="EC2" />,           category: "compute",        typeCategory: "compute" },
-  { id: "ecs",           name: "ECS",           description: "Container orchestration",              icon: <AwsIcon src={ecsSvg}         alt="ECS" />,           category: "compute",        typeCategory: "compute" },
-  // Networking
-  { id: "load-balancer", name: "Load Balancer", description: "Application & network load balancer", icon: <AwsIcon src={albSvg}         alt="Load Balancer" />, category: "networking",     typeCategory: "networking" },
-  { id: "cloudfront",   name: "CloudFront",    description: "Global CDN distribution",              icon: <AwsIcon src={cloudfrontSvg}  alt="CloudFront" />,    category: "networking",     typeCategory: "networking" },
-  // Storage
-  { id: "s3",            name: "S3",            description: "Object storage at scale",              icon: <AwsIcon src={s3Svg}          alt="S3" />,            category: "storage",        typeCategory: "storage" },
-  // Database
-  { id: "rds",           name: "RDS",           description: "Managed relational database",          icon: <AwsIcon src={rdsSvg}         alt="RDS" />,           category: "database",       typeCategory: "database" },
-  { id: "elastic-cache", name: "ElastiCache",   description: "In-memory caching (Redis/Memcached)", icon: <AwsIcon src={elasticacheSvg} alt="ElastiCache" />,   category: "database",       typeCategory: "database" },
-  // Security
-  { id: "iam-role",      name: "IAM Role",      description: "Identity & access management",        icon: <AwsIcon src={iamSvg}         alt="IAM" />,           category: "security",       typeCategory: "security" },
-  { id: "secrets-manager", name: "Secrets Manager", description: "Secrets rotation & storage",      icon: <AwsIcon src={secretsSvg}     alt="Secrets Manager" />, category: "security",     typeCategory: "security" },
-  // Monitoring
-  { id: "cloudwatch",    name: "CloudWatch",    description: "Logs, metrics & alarms",              icon: <AwsIcon src={cloudwatchSvg}  alt="CloudWatch" />,    category: "monitoring",     typeCategory: "monitoring" },
-  // Infrastructure containers (custom icons — no official AWS icon for these constructs)
-  { id: "region",        name: "AWS Region",    description: "Geographic deployment boundary",       icon: <RegionIcon />,                                        category: "infrastructure", typeCategory: "container-infra" },
-  { id: "vpc",           name: "VPC",           description: "Isolated virtual network",             icon: <AwsIcon src={vpcSvg}         alt="VPC" />,           category: "infrastructure", typeCategory: "container-infra" },
-  { id: "subnet",        name: "Subnet",        description: "Network subdivision within a VPC",    icon: <SubnetIcon />,                                        category: "infrastructure", typeCategory: "container-infra" },
-];
-
-// ─── By use case ──────────────────────────────────────────────────────────────
-
-function pick(...ids: string[]): AwsService[] {
-  return ids.flatMap((id) => ALL_SERVICES.filter((s) => s.id === id));
-}
-
-export const AWS_SERVICE_CATEGORIES: AwsServiceCategory[] = [
-  {
-    id: "serverless",
-    label: "Serverless API",
-    services: pick("lambda", "api-gateway", "dynamodb", "sqs", "sns"),
-  },
-  {
-    id: "frontend",
-    label: "Frontend & CDN",
-    services: pick("s3", "cloudfront", "load-balancer"),
-  },
-  {
-    id: "backend",
-    label: "Backend / REST",
-    services: pick("ec2", "load-balancer", "rds", "elastic-cache", "secrets-manager"),
-  },
-  {
-    id: "microservices",
-    label: "Microservices",
-    services: pick("ecs", "load-balancer", "sqs", "sns", "rds", "cloudwatch"),
-  },
-  {
-    id: "data",
-    label: "Data & Storage",
-    services: pick("s3", "dynamodb", "rds", "elastic-cache"),
-  },
-  {
-    id: "security",
-    label: "Security & IAM",
-    services: pick("iam-role", "secrets-manager"),
-  },
-  {
-    id: "observability",
-    label: "Observability",
-    services: pick("cloudwatch"),
-  },
-  {
-    id: "infrastructure",
-    label: "Infrastructure",
-    services: pick("region", "vpc", "subnet"),
-  },
-];
-
-// ─── By type ──────────────────────────────────────────────────────────────────
-
-const TYPE_CATEGORY_META: { id: ServiceTypeCategory; label: string }[] = [
-  { id: "compute",        label: "Compute" },
-  { id: "serverless",     label: "Serverless" },
-  { id: "networking",     label: "Networking" },
-  { id: "storage",        label: "Storage" },
-  { id: "database",       label: "Database" },
-  { id: "messaging",      label: "Messaging" },
-  { id: "security",       label: "Security" },
-  { id: "monitoring",     label: "Monitoring" },
-  { id: "container-infra", label: "Infrastructure" },
-];
-
-export const AWS_TYPE_CATEGORIES: AwsTypeCategory[] = TYPE_CATEGORY_META.map(
-  (meta) => ({
-    ...meta,
-    services: ALL_SERVICES.filter((s) => s.typeCategory === meta.id),
-  })
-).filter((cat) => cat.services.length > 0);
+export const AWS_TYPE_CATEGORIES: AwsTypeCategory[] = TYPE_CATEGORY_META.map((meta) => ({
+  ...meta,
+  services: ALL_SERVICES.filter((s) => s.typeCategory === meta.id),
+})).filter((cat) => cat.services.length > 0);

@@ -1,20 +1,12 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { ZipUpload } from "../../../components/CodeEditor/ZipUpload";
-import { AWS_SERVICE_CATEGORIES } from "../aws-services";
+import { getServiceIcon } from "../aws-services";
 import type { CanvasNode } from "../useCanvas";
 import { lambdaSource, type LambdaPackage } from "../lambdaSource";
 import { MAX_PACKAGE_BYTES, packagesService } from "../../../services/packages";
 import { errorMessage } from "../../../services/api";
 import { formatBytes } from "../../../utils/format";
-
-function getServiceIcon(type: string) {
-  for (const cat of AWS_SERVICE_CATEGORIES) {
-    const svc = cat.services.find((s) => s.id === type);
-    if (svc) return svc.icon;
-  }
-  return null;
-}
 
 interface ZipModalProps {
   node: CanvasNode;
