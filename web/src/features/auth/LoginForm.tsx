@@ -1,59 +1,11 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Button } from "../../components/Button/Button";
 import { Input } from "../../components/Input/Input";
-import { EyeIcon, EyeOffIcon } from "../../components/icons";
 import { useAuth } from "../../context/AuthContext";
 import { errorMessage } from "../../services/api";
-
-// Cognito's password policy (infra/api/modules/cognito).
-function passwordProblem(password: string): string | null {
-  if (password.length < 8) return "Use at least 8 characters.";
-  if (!/[a-z]/.test(password)) return "Add a lowercase letter.";
-  if (!/[A-Z]/.test(password)) return "Add an uppercase letter.";
-  if (!/[0-9]/.test(password)) return "Add a number.";
-  return null;
-}
-
-function PasswordInput({
-  label,
-  value,
-  onChange,
-  autoComplete,
-  error,
-  hint,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  autoComplete: string;
-  error?: string;
-  hint?: string;
-}) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <Input
-      label={label}
-      type={visible ? "text" : "password"}
-      autoComplete={autoComplete}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      error={error}
-      hint={hint}
-      required
-      rightElement={
-        <button
-          type="button"
-          onClick={() => setVisible((v) => !v)}
-          className="text-ink-dim hover:text-ink transition-colors"
-          aria-label={visible ? "Hide password" : "Show password"}
-        >
-          {visible ? <EyeOffIcon /> : <EyeIcon />}
-        </button>
-      }
-    />
-  );
-}
+import { PasswordInput } from "./PasswordInput";
+import { passwordProblem } from "./passwordPolicy";
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -172,6 +124,15 @@ export function LoginForm() {
           required
         />
         <PasswordInput label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
+        <div className="flex justify-end -mt-2">
+          <Link
+            to="/forgot-password"
+            state={{ email: email.trim() }}
+            className="text-xs text-ink-dim hover:text-ink transition-colors"
+          >
+            Forgot password?
+          </Link>
+        </div>
 
         {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
 

@@ -70,3 +70,30 @@ func FromCognitoAuthError(err error) *ApiError {
 	}
 	return Internal(fmt.Errorf("cognito InitiateAuth: %w", err))
 }
+
+// FromCognitoResetError maps the exceptions from ConfirmForgotPassword, which
+// sets a new password with the code Cognito emailed.
+func FromCognitoResetError(err error) *ApiError {
+	if _, ok := errors.AsType[*types.CodeMismatchException](err); ok {
+		return Validation("that code is not right")
+	}
+	if _, ok := errors.AsType[*types.ExpiredCodeException](err); ok {
+		return Validation("that code expired, ask for a new one")
+	}
+	if _, ok := errors.AsType[*types.InvalidPasswordException](err); ok {
+		return Validation("password does not meet the required policy")
+	}
+	if _, ok := errors.AsType[*types.LimitExceededException](err); ok {
+		return TooMany("too many attempts, wait a few minutes and try again")
+	}
+	if _, ok := errors.AsType[*types.TooManyFailedAttemptsException](err); ok {
+		return TooMany("too many attempts, wait a few minutes and try again")
+	}
+	if _, ok := errors.AsType[*types.UserNotFoundException](err); ok {
+		return Validation("that code is not right")
+	}
+	if _, ok := errors.AsType[*types.NotAuthorizedException](err); ok {
+		return Validation("this password can't be reset, ask an administrator")
+	}
+	return Internal(fmt.Errorf("cognito ConfirmForgotPassword: %w", err))
+}

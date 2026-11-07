@@ -55,7 +55,7 @@ To include the storage tests, start DynamoDB Local and S3Mock, and set `RIVO_DYN
 In order:
 
 1. Add project-level access, so a workspace can limit who sees each project. Add presigned uploads for Lambda packages, and save a Lambda's code and `.zip` with the project (the editor and upload keep nothing today).
-2. Show and create versions in the app, add password reset (Cognito ForgotPassword), and a platform administration screen for accounts.
+2. Show and create versions in the app, and add a platform administration screen for accounts.
 3. Generate Terraform from the diagram and let people download it.
 4. Connect AWS accounts (role ARN plus external ID), run plan, approval and apply on Fargate, and show pipelines in a dashboard. Record task duration per workspace, because hosting may later bill by infrastructure and usage time.
 5. Push the diagram and Terraform to a GitHub repository through a GitHub App.

@@ -27,3 +27,13 @@ type NewPasswordInput struct {
 type RefreshInput struct {
 	RefreshToken string `json:"refreshToken"`
 }
+
+type ForgotPasswordInput struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordInput struct {
+	Email       string `json:"email"`
+	Code        string `json:"code"`
+	NewPassword string `json:"newPassword"`
+}
