@@ -1,9 +1,12 @@
 # ── S3 bucket (private) ───────────────────────────────────────────────────────
 
+data "aws_caller_identity" "current" {}
+
 module "s3_frontend" {
   source      = "./modules/s3"
   environment = var.environment
-  bucket_name = "rivo-frontend"
+  # Bucket names are global, so the account ID keeps them unique.
+  bucket_name = "frontend-${data.aws_caller_identity.current.account_id}"
 }
 
 # ── CloudFront distribution ───────────────────────────────────────────────────

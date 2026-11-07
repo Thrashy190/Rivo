@@ -10,7 +10,7 @@ Set these in `infra/api/environments/<env>/<env>.tfvars`.
 |---|---|---|
 | `project_name` | Yes | Used to tag the AWS resources. |
 | `admin_email` | Yes | Email of the first administrator. |
-| `environment` | Set by the Makefile from `ENV` | Prefix for the DynamoDB table names, and the API stage. |
+| `environment` | Set by the Makefile from `ENV` | Part of every resource name, `rivo-<environment>-<name>`, such as `rivo-dev-login`, and the API stage. |
 | `web_origin` | To host the web app | Address of the hosted web app, allowed to call the API from the browser. |
 
 ### admin_email

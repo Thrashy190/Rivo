@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "this" {
-  bucket = "${var.environment}-${var.bucket_name}"
+  bucket = "rivo-${var.environment}-${var.bucket_name}"
 }
 
 # Block all public access — CloudFront reads objects via OAC (IAM), not public URLs.

@@ -15,7 +15,7 @@ variable "project_name" {
 
 variable "function_name" {
   type        = string
-  description = "Name of the Lambda function (environment prefix will be added)"
+  description = "Short name of the Lambda function. The deployed name is rivo-<environment>-<name>."
 }
 
 variable "path_directory_file" {
@@ -45,7 +45,6 @@ variable "environment_variables" {
   type        = map(string)
   default     = {}
 }
-
 variable "cors_allow_origin" {
   type        = string
   description = "Origin of the web app, sent in Access-Control-Allow-Origin. Empty sends no CORS headers."
