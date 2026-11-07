@@ -324,9 +324,10 @@ module "lambda_delete_folder" {
   environment         = var.environment
 
   environment_variables = {
-    USERS_TABLE_NAME   = module.users_table.name
-    MEMBERS_TABLE_NAME = module.memberships_table.name
-    FOLDERS_TABLE_NAME = module.folders_table.name
+    USERS_TABLE_NAME    = module.users_table.name
+    MEMBERS_TABLE_NAME  = module.memberships_table.name
+    FOLDERS_TABLE_NAME  = module.folders_table.name
+    PROJECTS_TABLE_NAME = module.projects_table.name
   }
 
   statement = [
