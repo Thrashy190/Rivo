@@ -1,4 +1,14 @@
 import type { CanvasNode } from "../useCanvas";
+import { lambdaSource } from "../lambdaSource";
+import { formatBytes } from "../../../utils/format";
+
+function InUse() {
+  return (
+    <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded shrink-0">
+      In use
+    </span>
+  );
+}
 
 const RUNTIME_LANGUAGE: Record<string, string> = {
   "nodejs20.x": "JavaScript",
@@ -32,6 +42,8 @@ export function LambdaPanel({ node, onOpenCode, onOpenZip }: LambdaPanelProps) {
   const memory = String(node.config.memory ?? 128);
   const timeout = String(node.config.timeout ?? 30);
   const handler = String(node.config.handler ?? "index.handler");
+  const source = lambdaSource(node);
+  const lines = source.kind === "inline" ? source.code.split("\n").length : 0;
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -67,8 +79,11 @@ export function LambdaPanel({ node, onOpenCode, onOpenZip }: LambdaPanelProps) {
             <p className="text-xs font-medium text-ink/80 group-hover:text-ink transition-colors">
               Open code editor
             </p>
-            <p className="text-[10px] text-ink-dim mt-0.5">Full-screen editor with syntax highlighting</p>
+            <p className="text-[10px] text-ink-dim mt-0.5">
+              {source.kind === "inline" ? `${lines} line${lines === 1 ? "" : "s"} saved with the diagram` : "Write the function in the diagram"}
+            </p>
           </div>
+          {source.kind === "inline" && <InUse />}
           <svg viewBox="0 0 14 14" className="w-3.5 h-3.5 text-ink-dim shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M2 7h10M8 3l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -92,11 +107,14 @@ export function LambdaPanel({ node, onOpenCode, onOpenZip }: LambdaPanelProps) {
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-ink/80 group-hover:text-ink transition-colors">
-              Upload .zip package
+            <p className="text-xs font-medium text-ink/80 group-hover:text-ink transition-colors truncate">
+              {source.kind === "package" ? source.package.name : "Upload .zip package"}
             </p>
-            <p className="text-[10px] text-ink-dim mt-0.5">Upload a deployment package directly</p>
+            <p className="text-[10px] text-ink-dim mt-0.5">
+              {source.kind === "package" ? formatBytes(source.package.size) : "Stored in your account's S3 bucket"}
+            </p>
           </div>
+          {source.kind === "package" && <InUse />}
           <svg viewBox="0 0 14 14" className="w-3.5 h-3.5 text-ink-dim shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M2 7h10M8 3l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -109,10 +127,7 @@ export function LambdaPanel({ node, onOpenCode, onOpenZip }: LambdaPanelProps) {
           Environment variables
         </p>
         <div className="rounded-lg border border-dashed border-edge/60 px-3 py-4 flex flex-col items-center gap-1.5">
-          <p className="text-xs text-ink-dim text-center">No variables set</p>
-          <button className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors">
-            + Add variable
-          </button>
+          <p className="text-xs text-ink-dim text-center">Not available yet</p>
         </div>
       </div>
     </div>

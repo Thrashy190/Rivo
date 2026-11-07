@@ -79,6 +79,8 @@ Public signup is closed in Cognito. `POST /workspaces/{workspaceId}/members` cre
 | `GET /workspaces/{workspaceId}/projects/{projectId}/versions` | `projects:read` |
 | `POST /workspaces/{workspaceId}/projects/{projectId}/versions` | `projects:update` |
 | `GET /workspaces/{workspaceId}/projects/{projectId}/versions/{number}` | `projects:read` |
+| `POST /workspaces/{workspaceId}/projects/{projectId}/packages` | `projects:update` |
+| `GET /workspaces/{workspaceId}/projects/{projectId}/packages/{packageId}` | `projects:read` |
 
 ## How diagrams are stored
 
@@ -87,12 +89,15 @@ DynamoDB holds what a project is and S3 holds its diagrams, under one prefix per
 ```text
 workspaces/{workspaceId}/projects/{projectId}/
 ├── draft.json            # the diagram people are editing
-└── versions/{number}.json   # saved copies that never change
+├── versions/{number}.json   # saved copies that never change
+└── packages/{packageId}.zip # Lambda code uploaded as a .zip
 ```
 
 1. `GET .../draft` returns the diagram and its ETag. A new project returns an empty diagram and no ETag.
 2. `PUT .../draft` saves it. Send the ETag as `If-Match`, or `If-None-Match: *` on a first save. If someone else saved in between, the answer is a 409 instead of overwriting their work.
 3. `POST .../versions` copies the draft to the next version number, reserved atomically in DynamoDB.
+
+A Lambda's code is part of its node in the diagram: written in the editor, it is stored in the node itself, up to 256 KB. A `.zip` is uploaded straight from the browser to S3 with a form that `POST .../packages` signs for 15 minutes, which S3 limits to 50 MB, and the node keeps its package ID. Packages stay until the project is deleted, because versions may still use them.
 
 Every route looks the project up inside the workspace in the path before it touches S3. Deleting a project removes its diagrams and versions first, so a failed deletion can be repeated. The bucket keeps overwritten and deleted copies for 30 days.
 
@@ -122,6 +127,6 @@ Every route looks the project up inside the workspace in the path before it touc
 - **One Lambda per action.** Each has narrow IAM permissions, at the cost of more Terraform and Go modules.
 - **DynamoDB, keyed by workspace.** It needs no VPC or connection pooling and costs nothing when idle. Partitioning by `workspace_id` keeps queries inside one tenant.
 - **Diagrams live in S3.** DynamoDB holds at most 400 KB per item, and diagrams need drafts and versions.
-- **Diagrams go through the API, not presigned URLs.** The Lambda can validate each diagram, enforce the 5 MB limit and detect conflicts, and the bucket needs no CORS rules. Large binaries, such as Lambda packages, will need presigned URLs.
+- **Diagrams go through the API, packages do not.** A Lambda can validate each diagram, enforce the 5 MB limit and detect conflicts. A `.zip` is too large for a Lambda's 6 MB request limit, so it goes to S3 with a presigned form, and the bucket allows uploads from `web_origin` and `dev_web_origin`.
 - **AWS only, for now.** Rivo runs on AWS and designs for AWS.
 - **Terraform in the deployment engine.** Rivo is not sold as a hosted service today. Terraform's license (BUSL) restricts paid hosted offerings that compete with IBM's paid versions, so this must be reviewed before charging for hosting.

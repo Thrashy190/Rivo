@@ -12,6 +12,7 @@ import { RightPanel } from "../features/canvas/RightPanel/RightPanel";
 import { ServicesModal } from "../features/canvas/modals/ServicesModal";
 import { CodeModal } from "../features/canvas/modals/CodeModal";
 import { ZipModal } from "../features/canvas/modals/ZipModal";
+import { withInlineCode, withPackage } from "../features/canvas/lambdaSource";
 import { useWorkspace } from "../features/workspace/workspaceContext";
 import { FullPageMessage } from "../features/workspace/FullPageMessage";
 import { Button } from "../components/Button/Button";
@@ -289,10 +290,28 @@ export function CanvasPage() {
       )}
 
       {lambdaModal === "code" && rightNode?.type === "lambda" && (
-        <CodeModal node={rightNode} onClose={() => setLambdaModal(null)} />
+        <CodeModal
+          node={rightNode}
+          readOnly={!canSave}
+          onSave={(code) => {
+            updateNodeConfig(rightNode.id, withInlineCode(rightNode, code));
+            push("The function now uses this code. Save the diagram to keep it.", "info");
+          }}
+          onClose={() => setLambdaModal(null)}
+        />
       )}
       {lambdaModal === "zip" && rightNode?.type === "lambda" && (
-        <ZipModal node={rightNode} onClose={() => setLambdaModal(null)} />
+        <ZipModal
+          node={rightNode}
+          workspaceId={workspace.id}
+          projectId={projectId}
+          readOnly={!canSave}
+          onUploaded={(pkg) => {
+            updateNodeConfig(rightNode.id, withPackage(rightNode, pkg));
+            push(`${pkg.name} is uploaded. Save the diagram to use it.`, "success");
+          }}
+          onClose={() => setLambdaModal(null)}
+        />
       )}
     </div>
   );

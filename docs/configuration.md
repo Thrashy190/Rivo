@@ -12,6 +12,7 @@ Set these in `infra/api/environments/<env>/<env>.tfvars`.
 | `admin_email` | Yes | Email of the first administrator. |
 | `environment` | Set by the Makefile from `ENV` | Part of every resource name, `rivo-<environment>-<name>`, such as `rivo-dev-login`, and the API stage. |
 | `web_origin` | To host the web app | Address of the hosted web app, allowed to call the API from the browser. |
+| `dev_web_origin` | No | Address of `npm run dev`, allowed to upload Lambda packages. `http://localhost:5173` by default; set it to `""` to allow only `web_origin`. |
 
 ### admin_email
 

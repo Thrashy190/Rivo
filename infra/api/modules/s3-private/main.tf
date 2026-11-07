@@ -82,3 +82,17 @@ resource "aws_s3_bucket_policy" "this" {
   policy     = data.aws_iam_policy_document.tls_only.json
   depends_on = [aws_s3_bucket_public_access_block.this]
 }
+
+# Presigned forms carry their own permission; CORS only lets the page read
+# S3's answer to the upload.
+resource "aws_s3_bucket_cors_configuration" "this" {
+  count  = length(var.upload_origins) > 0 ? 1 : 0
+  bucket = aws_s3_bucket.this.id
+
+  cors_rule {
+    allowed_methods = ["POST"]
+    allowed_origins = var.upload_origins
+    allowed_headers = ["*"]
+    max_age_seconds = 600
+  }
+}

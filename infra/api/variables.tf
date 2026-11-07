@@ -12,7 +12,7 @@ output "api_base_url" {
 output "endpoints" {
   description = "Method and full URL of every registered endpoint"
   value = {
-    for key, route in merge(local.routes, local.workspace_routes, local.project_routes) :
+    for key, route in merge(local.routes, local.workspace_routes, local.project_routes, local.package_routes) :
     key => "${route.http_method} ${local.api_base_url}/${route.route_path}"
   }
 }
@@ -50,5 +50,18 @@ variable "web_origin" {
   validation {
     condition     = var.web_origin == "" || can(regex("^https?://[^/[:space:]]+$", var.web_origin))
     error_message = "web_origin must look like https://d1234abcd.cloudfront.net, with no path or trailing slash, or be empty."
+  }
+}
+
+# npm run dev sends API calls through the Vite proxy, but Lambda packages go
+# from the browser straight to S3, which must allow this origin too.
+variable "dev_web_origin" {
+  type        = string
+  description = "Origin of the local development server, allowed to upload Lambda packages. Set it to an empty string to allow only web_origin."
+  default     = "http://localhost:5173"
+
+  validation {
+    condition     = var.dev_web_origin == "" || can(regex("^https?://[^/[:space:]]+$", var.dev_web_origin))
+    error_message = "dev_web_origin must look like http://localhost:5173, with no path or trailing slash, or be empty."
   }
 }
