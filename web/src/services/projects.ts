@@ -1,35 +1,44 @@
 import type { CanvasNode, CanvasEdge } from "../features/canvas/useCanvas";
-import { makeCache } from "../store/appCache";
-import { mockDb, delay, type MockProject } from "./mockStore";
-
-// ── API shapes ────────────────────────────────────────────────────────────────
+import { api } from "./api";
 
 export interface ApiProject {
-  projectId:   string;
-  name:        string;
-  description?: string;
-  spaceId:     string;
+  workspaceId: string;
+  projectId: string;
+  folderId?: string;
+  name: string;
+  description: string;
+  region: string;
   environment: string;
-  region:      string;
-  status:      "draft" | "deployed" | "deploying" | "failed";
-  createdAt:   string;
-  updatedAt:   string;
+  status: "draft" | "deployed" | "deploying" | "failed";
+  latestVersion: number;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
-export interface ApiProjectDetail extends ApiProject {
-  model: {
-    version?: string;
-    nodes:    CanvasNode[];
-    edges:    CanvasEdge[];
-  };
+export interface DiagramModel {
+  version?: string;
+  nodes: CanvasNode[];
+  edges: CanvasEdge[];
 }
 
-// ── Color helper ──────────────────────────────────────────────────────────────
+export interface Draft {
+  // Empty for a project that has never been saved.
+  etag: string;
+  model: DiagramModel;
+}
 
-const ACCENT_COLORS = [
-  "#6366f1", "#10b981", "#f59e0b",
-  "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6",
-];
+export interface Version {
+  projectId: string;
+  number: number;
+  note?: string;
+  createdBy: string;
+  createdAt: number;
+}
+
+export const DIAGRAM_FORMAT = "canvas/1";
+
+const ACCENT_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6"];
 
 export function projectAccentColor(id: string): string {
   let h = 0;
@@ -37,48 +46,47 @@ export function projectAccentColor(id: string): string {
   return ACCENT_COLORS[Math.abs(h) % ACCENT_COLORS.length];
 }
 
-// ── Cache ─────────────────────────────────────────────────────────────────────
-
-export const projectsCache = makeCache<ApiProject[]>();
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function toApiProject(project: MockProject): ApiProject {
-  const { projectId, name, description, spaceId, environment, region, status, createdAt, updatedAt } = project;
-  return { projectId, name, description, spaceId, environment, region, status, createdAt, updatedAt };
-}
-
-// ── Service calls ─────────────────────────────────────────────────────────────
+const base = (workspaceId: string) => `/workspaces/${encodeURIComponent(workspaceId)}/projects`;
+const one = (workspaceId: string, projectId: string) => `${base(workspaceId)}/${encodeURIComponent(projectId)}`;
 
 export const projectsService = {
-  list: () => {
-    const projects = mockDb.listProjects().map(toApiProject);
-    projectsCache.set(projects);
-    return delay({ projects });
+  list: async (workspaceId: string) => {
+    const list = await api.get<ApiProject[]>(base(workspaceId));
+    return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
-  create: (body: {
-    name:        string;
-    description?: string;
-    spaceId:     string;
-    region:      string;
-    environment: string;
-  }) => delay({ project: toApiProject(mockDb.createProject(body)) }),
+  create: (
+    workspaceId: string,
+    body: { name: string; description?: string; folderId?: string; region: string; environment: string },
+  ) => api.post<ApiProject>(base(workspaceId), body),
 
-  get: (projectId: string) => {
-    const project = mockDb.getProject(projectId);
-    if (!project) return Promise.reject(new Error(`Project ${projectId} not found`));
-    return delay({ project: project as ApiProjectDetail });
+  get: (workspaceId: string, projectId: string) => api.get<ApiProject>(one(workspaceId, projectId)),
+
+  // folderId "" takes the project out of its folder.
+  update: (workspaceId: string, projectId: string, patch: { name?: string; description?: string; folderId?: string }) =>
+    api.patch<ApiProject>(one(workspaceId, projectId), patch),
+
+  delete: (workspaceId: string, projectId: string) => api.delete<unknown>(one(workspaceId, projectId)),
+
+  getDraft: async (workspaceId: string, projectId: string): Promise<Draft> => {
+    const draft = await api.get<{ etag?: string; model: DiagramModel }>(`${one(workspaceId, projectId)}/draft`);
+    return {
+      etag: draft.etag ?? "",
+      model: { ...draft.model, nodes: draft.model?.nodes ?? [], edges: draft.model?.edges ?? [] },
+    };
   },
 
-  update: (projectId: string, nodes: CanvasNode[], edges: CanvasEdge[]) => {
-    const project = mockDb.updateProjectModel(projectId, { version: "canvas/1", nodes, edges });
-    if (!project) return Promise.reject(new Error(`Project ${projectId} not found`));
-    return delay({ project: toApiProject(project) });
+  // Saves only if nobody else saved since `etag` was read; otherwise the API
+  // answers 409. Returns the new ETag.
+  saveDraft: async (workspaceId: string, projectId: string, model: DiagramModel, etag: string) => {
+    const headers: Record<string, string> = etag ? { "If-Match": etag } : { "If-None-Match": "*" };
+    const out = await api.put<{ etag: string }>(`${one(workspaceId, projectId)}/draft`, model, { headers });
+    return out.etag;
   },
 
-  delete: (projectId: string) => {
-    mockDb.deleteProject(projectId);
-    return delay({ message: "Project deleted" });
-  },
+  versions: (workspaceId: string, projectId: string) =>
+    api.get<Version[]>(`${one(workspaceId, projectId)}/versions`),
+
+  createVersion: (workspaceId: string, projectId: string, note: string) =>
+    api.post<Version>(`${one(workspaceId, projectId)}/versions`, { note }),
 };

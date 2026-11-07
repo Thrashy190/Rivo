@@ -12,14 +12,14 @@ data "aws_iam_policy_document" "name" {
 }
 
 resource "aws_iam_role" "lambda_execution_role" {
-  name               = "${var.function_name}-execution-role"
+  name               = "${local.name}-execution-role"
   assume_role_policy = data.aws_iam_policy_document.name.json
   tags               = { Project = var.project_name }
 }
 
 
 resource "aws_iam_role_policy" "lambda_execution_role" {
-  name = "${var.function_name}-execution-policy"
+  name = "${local.name}-execution-policy"
   role = aws_iam_role.lambda_execution_role.id
   policy = jsonencode({
     Version = "2012-10-17"
@@ -42,6 +42,15 @@ resource "aws_iam_role_policy" "lambda_execution_role" {
 
 locals {
   services_dir = "${path.root}/../../services"
+
+  # rivo-<environment>-<function>, so installations and environments can share
+  # an account without clashing.
+  name = "${lower(var.project_name)}-${var.environment}-${var.function_name}"
+
+  environment_variables = merge(
+    var.environment_variables,
+    var.cors_allow_origin == "" ? {} : { CORS_ALLOW_ORIGIN = var.cors_allow_origin },
+  )
 }
 
 resource "null_resource" "go_lambda_build" {
@@ -82,7 +91,7 @@ data "archive_file" "build_lambda" {
 }
 
 resource "aws_lambda_function" "this" {
-  function_name    = var.function_name
+  function_name    = local.name
   role             = aws_iam_role.lambda_execution_role.arn
   runtime          = "provided.al2023"
   architectures    = ["arm64"]
@@ -93,9 +102,9 @@ resource "aws_lambda_function" "this" {
   source_code_hash = data.archive_file.build_lambda.output_base64sha256
 
   dynamic "environment" {
-    for_each = length(var.environment_variables) > 0 ? [1] : []
+    for_each = length(local.environment_variables) > 0 ? [1] : []
     content {
-      variables = var.environment_variables
+      variables = local.environment_variables
     }
   }
 

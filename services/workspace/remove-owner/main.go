@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -71,7 +70,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	}
 
 	log.Printf("audit: user %s removed owner %s from workspace %s", caller.ID, target.UserID, workspaceID)
-	return events.APIGatewayProxyResponse{StatusCode: http.StatusNoContent}, nil
+	return apigateway.NoContent(), nil
 }
 
 func main() {

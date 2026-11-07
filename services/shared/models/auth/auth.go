@@ -23,3 +23,7 @@ type NewPasswordInput struct {
 	Session     string `json:"session"`
 	NewPassword string `json:"newPassword"`
 }
+
+type RefreshInput struct {
+	RefreshToken string `json:"refreshToken"`
+}

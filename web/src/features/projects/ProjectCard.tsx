@@ -11,9 +11,11 @@ export interface Project {
   description?: string;
   status: ProjectStatus;
   region: string;
-  resourceCount: number;
+  environment: string;
   updatedAt: string;
   accentColor: string;
+  // Where the card opens: the project's canvas.
+  href: string;
 }
 
 const statusConfig: Record<
@@ -64,10 +66,10 @@ const PencilIcon = (
   </svg>
 );
 
-const DuplicateIcon = (
+const MoveIcon = (
   <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="4" y="4" width="8" height="8" rx="1.5" />
-    <path d="M2 10V2h8" />
+    <path d="M1.5 4.5V11a1 1 0 001 1h9a1 1 0 001-1V5.5a1 1 0 00-1-1H7L5.5 2.5h-3a1 1 0 00-1 1v1z" />
+    <path d="M6 8h3.5M8 6.5L9.5 8 8 9.5" />
   </svg>
 );
 
@@ -103,11 +105,16 @@ const MapPinIcon = (
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
-interface ProjectCardProps {
+export interface ProjectCardProps {
   project: Project;
+  // Each action shows in the menu only when it is given, so a role that
+  // cannot change projects does not see it.
+  onRename?: () => void;
+  onMove?: () => void;
+  onDelete?: () => void;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, onRename, onMove, onDelete }: ProjectCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -143,7 +150,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
     >
       {/* Stretched link */}
       <Link
-        to={`/projects/${project.id}`}
+        to={project.href}
         className="absolute inset-0 rounded-xl"
         aria-label={project.name}
       />
@@ -168,6 +175,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <div ref={menuRef} className="relative z-10 shrink-0">
             <button
               onClick={(e) => { e.preventDefault(); setMenuOpen((v) => !v); }}
+              aria-label={`Options for ${project.name}`}
               className="w-7 h-7 rounded-md flex items-center justify-center text-ink-dim hover:text-ink hover:bg-raised/80 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
             >
               <DotsVerticalIcon className="w-4 h-4" />
@@ -175,22 +183,30 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
             {menuOpen && (
               <div className="absolute right-0 top-8 w-48 bg-popover border border-edge rounded-lg shadow-xl shadow-black/40 py-1 z-50">
-                <MenuItem icon={PencilIcon} label="Rename"
-                  onClick={() => { push("Rename coming soon", "info"); setMenuOpen(false); }}
-                />
-                <MenuItem icon={DuplicateIcon} label="Duplicate"
-                  onClick={() => { push("Duplicate coming soon", "info"); setMenuOpen(false); }}
-                />
                 <MenuItem icon={CanvasIcon} label="Open in canvas"
-                  onClick={() => { navigate(`/projects/${project.id}`); setMenuOpen(false); }}
+                  onClick={() => { navigate(project.href); setMenuOpen(false); }}
                 />
+                {onRename && (
+                  <MenuItem icon={PencilIcon} label="Rename"
+                    onClick={() => { setMenuOpen(false); onRename(); }}
+                  />
+                )}
+                {onMove && (
+                  <MenuItem icon={MoveIcon} label="Move to folder"
+                    onClick={() => { setMenuOpen(false); onMove(); }}
+                  />
+                )}
                 <MenuItem icon={CopyIcon} label="Copy project ID"
                   onClick={handleCopyId}
                 />
-                <div className="my-1 border-t border-edge/60" />
-                <MenuItem icon={TrashIcon} label="Delete" danger
-                  onClick={() => { push("Delete coming soon", "info"); setMenuOpen(false); }}
-                />
+                {onDelete && (
+                  <>
+                    <div className="my-1 border-t border-edge/60" />
+                    <MenuItem icon={TrashIcon} label="Delete" danger
+                      onClick={() => { setMenuOpen(false); onDelete(); }}
+                    />
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -217,9 +233,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
         {/* Footer stats */}
         <div className="flex items-center gap-3 pt-3 border-t border-edge/50 text-[11px] text-ink-dim">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 capitalize">
             <LayersIcon className="w-3 h-3 shrink-0" />
-            {project.resourceCount} resources
+            {project.environment}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 shrink-0">{MapPinIcon}</span>

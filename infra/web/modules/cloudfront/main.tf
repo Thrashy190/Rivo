@@ -2,7 +2,7 @@
 # OAC lets CloudFront fetch from the private S3 bucket without making it public.
 
 resource "aws_cloudfront_origin_access_control" "this" {
-  name                              = "${var.environment}-rivo-frontend-oac"
+  name                              = "rivo-${var.environment}-frontend"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"

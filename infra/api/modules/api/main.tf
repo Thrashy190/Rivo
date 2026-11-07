@@ -22,10 +22,17 @@ resource "aws_api_gateway_deployment" "this" {
       routes     = var.routes
       authorizer = var.authorizer_id
       methods    = [for r in module.routes : r.method_id]
+      web_origin = var.web_origin
+      preflight  = [for r in aws_api_gateway_integration_response.preflight : r.id]
+      errors     = [for r in aws_api_gateway_gateway_response.cors : r.id]
     }))
   }
 
-  depends_on = [module.routes]
+  depends_on = [
+    module.routes,
+    aws_api_gateway_integration_response.preflight,
+    aws_api_gateway_gateway_response.cors,
+  ]
 
   lifecycle {
     create_before_destroy = true

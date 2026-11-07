@@ -5,5 +5,5 @@ variable "environment" {
 
 variable "bucket_name" {
   type        = string
-  description = "Bucket name suffix (environment prefix is prepended automatically)"
+  description = "Bucket name suffix. The bucket is named rivo-<environment>-<suffix>."
 }

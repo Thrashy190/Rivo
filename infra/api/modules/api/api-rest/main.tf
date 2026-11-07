@@ -1,5 +1,5 @@
 resource "aws_api_gateway_rest_api" "this" {
-  name        = "${var.environment}-rivo-api"
+  name        = "${lower(var.project_name)}-${var.environment}-api"
   description = "Rivo control plane API"
 
   endpoint_configuration {

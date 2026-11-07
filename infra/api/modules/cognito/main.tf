@@ -1,5 +1,5 @@
 resource "aws_cognito_user_pool" "this" {
-  name = "rivo-users-${var.environment}"
+  name = "${lower(var.project_name)}-${var.environment}-users"
 
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
@@ -25,7 +25,7 @@ resource "aws_cognito_user_pool" "this" {
 }
 
 resource "aws_cognito_user_pool_client" "app" {
-  name         = "rivo-app-client"
+  name         = "${lower(var.project_name)}-${var.environment}-web"
   user_pool_id = aws_cognito_user_pool.this.id
 
   explicit_auth_flows = [

@@ -1,13 +1,14 @@
 # Architecture
 
-Rivo has a React web app and a serverless API in Go, both deployed to AWS with Terraform. Today the web app runs on sample data in the browser and is not connected to the API. Generating Terraform from a diagram and deploying it are not built yet.
+Rivo has a React web app and a serverless API in Go, both deployed to AWS with Terraform. The app signs in with Cognito through the API and reads and writes everything through it. Generating Terraform from a diagram and deploying it are not built yet.
 
 ## Code map
 
 | Path | What it does |
 |---|---|
-| `web/` | React app: canvas, projects and sign-in |
-| `web/src/services/` | Data access for the app. Backed by `mockStore.ts` until it is connected to the API |
+| `web/` | React app: sign-in, workspaces, members, projects and the canvas |
+| `web/src/services/` | Calls to the API, one module per area. `api.ts` adds the token and renews it |
+| `web/src/features/workspace/` | The workspace in the URL, its folders and your role in it |
 | `web/src/features/canvas/` | The hand-written canvas, its service catalog and configuration panels |
 | `services/shared/` | Go code shared by the Lambdas: models, permissions, repositories and responses |
 | `services/<area>/<action>/` | One Lambda per action, each with its own Go module |
@@ -95,10 +96,23 @@ workspaces/{workspaceId}/projects/{projectId}/
 
 Every route looks the project up inside the workspace in the path before it touches S3. Deleting a project removes its diagrams and versions first, so a failed deletion can be repeated. The bucket keeps overwritten and deleted copies for 30 days.
 
+## How the web app talks to the API
+
+- **Sign-in.** `POST /auth/login` returns Cognito's tokens, or a `NEW_PASSWORD_REQUIRED` challenge the first time, which the app answers with `POST /auth/new-password`. The ID token lasts an hour, and the app gets a new one from `POST /auth/refresh` with the refresh token, which lasts 30 days. Both are kept in the browser's local storage.
+- **Roles.** The app hides what your role cannot do, using the same table as the API. The API still checks every request.
+- **CORS.** Lambdas add `Access-Control-Allow-Origin` from `web_origin`, and API Gateway answers the browser's `OPTIONS` requests and its own errors, such as an expired token, with the same header. Locally, Vite forwards `/api` to the API, so the browser sees one site and CORS does not apply.
+
+| Route | Who can call it |
+|---|---|
+| `POST /auth/login` | Anyone |
+| `POST /auth/new-password` | Anyone with the session from a login |
+| `POST /auth/refresh` | Anyone with a refresh token |
+| `GET /users/me` | Signed in |
+
 ## Known limits
 
 - **Access is per workspace, not per project.** Everyone in a workspace can see all its projects.
-- **The API sends no CORS headers,** which the web app will need once it is connected.
+- **One web origin.** `web_origin` allows a single address. Serving the app from two domains needs another approach, such as the API behind the same CloudFront distribution.
 - **Two concurrent changes could remove the last owner.** The check reads the member list and then writes, without a transaction.
 
 ## Decisions

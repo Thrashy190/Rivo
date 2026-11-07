@@ -1,15 +1,19 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { Button } from "../../components/Button/Button";
 import { Input } from "../../components/Input/Input";
-import { ProjectCard } from "./ProjectCard";
+import { ProjectCard, type ProjectCardProps } from "./ProjectCard";
 import { Skeleton } from "../../components/Skeleton/Skeleton";
 import { PlusIcon, SearchIcon, FolderIcon } from "../../components/icons";
 import type { Project } from "./ProjectCard";
 
 interface ProjectsGridProps {
+  title: string;
   projects: Project[];
   loading?: boolean;
+  // Shown when the role can create projects.
+  onCreate?: () => void;
+  emptyMessage?: string;
+  cardActions?: (project: Project) => Pick<ProjectCardProps, "onRename" | "onMove" | "onDelete">;
 }
 
 function ProjectCardSkeleton() {
@@ -32,8 +36,14 @@ function ProjectCardSkeleton() {
   );
 }
 
-export function ProjectsGrid({ projects, loading = false }: ProjectsGridProps) {
-  const navigate = useNavigate();
+export function ProjectsGrid({
+  title,
+  projects,
+  loading = false,
+  onCreate,
+  emptyMessage = "Create your first project to start building infrastructure visually.",
+  cardActions,
+}: ProjectsGridProps) {
   const [search, setSearch] = useState("");
 
   const filtered = projects.filter(
@@ -46,17 +56,19 @@ export function ProjectsGrid({ projects, loading = false }: ProjectsGridProps) {
     <div>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className="text-base font-semibold tracking-tight">All projects</h2>
-          <p className="text-xs text-ink-dim mt-0.5">
+          <h1 className="text-base font-semibold tracking-tight">{title}</h1>
+          <div className="text-xs text-ink-dim mt-0.5">
             {loading ? (
               <Skeleton className="h-3 w-20 inline-block" />
-            ) : projects.length === 0 ? "No projects yet" : `${projects.length} projects`}
-          </p>
+            ) : projects.length === 0 ? "No projects yet" : `${projects.length} project${projects.length === 1 ? "" : "s"}`}
+          </div>
         </div>
-        <Button size="sm" onClick={() => navigate("/projects/new")}>
-          <PlusIcon />
-          New project
-        </Button>
+        {onCreate && (
+          <Button size="sm" onClick={onCreate}>
+            <PlusIcon />
+            New project
+          </Button>
+        )}
       </div>
 
       <div className="mb-6 max-w-xs">
@@ -77,17 +89,19 @@ export function ProjectsGrid({ projects, loading = false }: ProjectsGridProps) {
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+            <ProjectCard key={project.id} project={project} {...cardActions?.(project)} />
           ))}
         </div>
+      ) : search ? (
+        <p className="py-16 text-center text-sm text-ink-dim">No projects match “{search}”.</p>
       ) : (
-        <EmptyState onCreate={() => navigate("/projects/new")} />
+        <EmptyState message={emptyMessage} onCreate={onCreate} />
       )}
     </div>
   );
 }
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
+function EmptyState({ message, onCreate }: { message: string; onCreate?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <div className="w-12 h-12 rounded-xl bg-card border border-edge flex items-center justify-center mb-4">
@@ -95,12 +109,14 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       </div>
       <p className="text-sm font-medium text-ink-dim mb-1">No projects yet</p>
       <p className="text-sm text-ink-dim mb-6 max-w-xs">
-        Create your first project to start building infrastructure visually.
+        {message}
       </p>
-      <Button size="sm" onClick={onCreate}>
-        <PlusIcon />
-        New project
-      </Button>
+      {onCreate && (
+        <Button size="sm" onClick={onCreate}>
+          <PlusIcon />
+          New project
+        </Button>
+      )}
     </div>
   );
 }

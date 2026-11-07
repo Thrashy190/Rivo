@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
@@ -11,7 +11,18 @@ import { playwright } from '@vitest/browser-playwright';
 const dirname = import.meta.dirname;
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // In development the app calls /api, and Vite forwards it to your deployed
+  // API, read from RIVO_API_URL in .env.local or the shell. Same-origin
+  // requests need no CORS.
+  const apiUrl = loadEnv(mode, dirname, "RIVO_").RIVO_API_URL;
+
+  return {
+  server: {
+    proxy: apiUrl
+      ? { "/api": { target: apiUrl, changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, "") } }
+      : undefined,
+  },
   plugins: [react(), babel({
     presets: [reactCompilerPreset()]
   }), tailwindcss()],
@@ -37,4 +48,5 @@ export default defineConfig({
       }
     }]
   }
+};
 });

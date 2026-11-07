@@ -1,20 +1,19 @@
-import { useState, useEffect, type FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { useState, type FormEvent } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "../../components/Button/Button";
 import { Input } from "../../components/Input/Input";
 import { Select } from "../../components/Select/Select";
 import { projectsService } from "../../services/projects";
-import { spacesService, type ApiSpace } from "../../services/spaces";
+import { errorMessage } from "../../services/api";
+import { useWorkspace } from "../workspace/workspaceContext";
 
-type CloudProvider = "aws" | "azure" | "gcp";
 type Environment   = "production" | "staging" | "development";
 type Step          = 1 | 2 | 3;
 
 interface ProjectDraft {
   name:        string;
   description: string;
-  spaceId:     string;
-  provider:    CloudProvider;
+  folderId:    string;
   region:      string;
   environment: Environment;
 }
@@ -30,12 +29,6 @@ const AWS_REGIONS = [
   { value: "ap-southeast-1", label: "Asia Pacific — Singapore" },
   { value: "ap-southeast-2", label: "Asia Pacific — Sydney" },
   { value: "sa-east-1",      label: "South America — São Paulo" },
-];
-
-const PROVIDERS: { id: CloudProvider; name: string; available: boolean; color: string }[] = [
-  { id: "aws",   name: "Amazon Web Services", available: true,  color: "#FF9900" },
-  { id: "azure", name: "Microsoft Azure",     available: false, color: "#0089D6" },
-  { id: "gcp",   name: "Google Cloud",        available: false, color: "#4285F4" },
 ];
 
 const ENVIRONMENTS: { id: Environment; label: string; description: string }[] = [
@@ -66,24 +59,17 @@ function StepIndicator({ current, total }: { current: Step; total: number }) {
 
 export function CreateProjectWizard() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const { workspace, folders } = useWorkspace();
   const [step,   setStep]   = useState<Step>(1);
-  const [spaces, setSpaces] = useState<ApiSpace[]>([]);
-  const [draft,  setDraft]  = useState<ProjectDraft>({
-    name: "", description: "", spaceId: "",
-    provider: "aws", region: "us-east-1", environment: "production",
-  });
+  const [draft,  setDraft]  = useState<ProjectDraft>(() => ({
+    name: "", description: "",
+    folderId: folders.some((f) => f.id === params.get("folder")) ? params.get("folder")! : "",
+    region: "us-east-1", environment: "development",
+  }));
   const [errors,  setErrors]  = useState<Partial<Record<keyof ProjectDraft, string>>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
-
-  useEffect(() => {
-    spacesService.list().then((res) => {
-      setSpaces(res.spaces);
-      if (res.spaces.length > 0 && !draft.spaceId) {
-        setDraft((prev) => ({ ...prev, spaceId: res.spaces[0].spaceId }));
-      }
-    }).catch(console.error);
-  }, []);
 
   const update = (field: keyof ProjectDraft, value: string) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -93,7 +79,6 @@ export function CreateProjectWizard() {
   const validateStep1 = () => {
     if (!draft.name.trim()) { setErrors({ name: "Project name is required" }); return false; }
     if (draft.name.trim().length < 2) { setErrors({ name: "Name must be at least 2 characters" }); return false; }
-    if (!draft.spaceId) { setErrors({ spaceId: "Select a space for this project" }); return false; }
     return true;
   };
 
@@ -102,30 +87,28 @@ export function CreateProjectWizard() {
     setApiError(null);
     setLoading(true);
     try {
-      const { project } = await projectsService.create({
-        name:        draft.name,
-        description: draft.description || undefined,
-        spaceId:     draft.spaceId,
+      const project = await projectsService.create(workspace.id, {
+        name:        draft.name.trim(),
+        description: draft.description.trim() || undefined,
+        folderId:    draft.folderId || undefined,
         region:      draft.region,
         environment: draft.environment,
       });
-      navigate(`/projects/${project.projectId}`, {
-        state: { projectName: project.name, region: project.region, environment: project.environment },
-      });
+      navigate(`/workspaces/${workspace.id}/projects/${project.projectId}`, { replace: true });
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Failed to create project");
-    } finally {
+      setApiError(errorMessage(err, "Failed to create project"));
       setLoading(false);
     }
   };
 
-  const selectedSpace = spaces.find((s) => s.spaceId === draft.spaceId);
+  const selectedFolder = folders.find((f) => f.id === draft.folderId);
+  const cancel = () => navigate(draft.folderId ? `/workspaces/${workspace.id}/folders/${draft.folderId}` : `/workspaces/${workspace.id}`);
 
   return (
     <div className="w-full max-w-lg">
       <StepIndicator current={step} total={3} />
 
-      {/* Step 1: name + space */}
+      {/* Step 1: name + folder */}
       {step === 1 && (
         <div>
           <h2 className="text-xl font-semibold tracking-tight mb-1">Name your project</h2>
@@ -154,40 +137,15 @@ export function CreateProjectWizard() {
               />
             </div>
 
-            <div>
-              <p className="text-xs font-medium text-ink-dim tracking-wide uppercase mb-2">Space</p>
-              {spaces.length === 0 ? (
-                <p className="text-xs text-ink-dim">No spaces yet — <a href="/spaces/new" className="underline">create one first</a></p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {spaces.map((space) => (
-                    <button
-                      key={space.spaceId}
-                      type="button"
-                      onClick={() => update("spaceId", space.spaceId)}
-                      className={[
-                        "flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer",
-                        draft.spaceId === space.spaceId
-                          ? "border-ink/20 bg-ink/5"
-                          : "border-edge hover:border-edge",
-                      ].join(" ")}
-                    >
-                      <span className="w-3.5 h-3.5 rounded-sm shrink-0" style={{ backgroundColor: space.color }} />
-                      <span className="text-sm text-ink">{space.name}</span>
-                      {draft.spaceId === space.spaceId && (
-                        <div className="ml-auto w-4 h-4 rounded-full border-2 border-white flex items-center justify-center shrink-0">
-                          <div className="w-1.5 h-1.5 rounded-full bg-ink" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {errors.spaceId && <p className="mt-1.5 text-xs text-red-400">{errors.spaceId}</p>}
-            </div>
+            <Select label="Folder" value={draft.folderId} onChange={(e) => update("folderId", e.target.value)}>
+              <option value="">No folder</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </Select>
 
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="ghost" size="sm" onClick={() => navigate("/projects")}>Cancel</Button>
+              <Button variant="ghost" size="sm" type="button" onClick={cancel}>Cancel</Button>
               <Button type="submit" size="sm">Continue</Button>
             </div>
           </form>
@@ -197,39 +155,10 @@ export function CreateProjectWizard() {
       {/* Step 2: cloud + region */}
       {step === 2 && (
         <div>
-          <h2 className="text-xl font-semibold tracking-tight mb-1">Cloud & region</h2>
-          <p className="text-sm text-ink-dim mb-8">Choose where your infrastructure will be deployed.</p>
+          <h2 className="text-xl font-semibold tracking-tight mb-1">Region</h2>
+          <p className="text-sm text-ink-dim mb-8">The AWS region this project's infrastructure will run in.</p>
 
           <div className="flex flex-col gap-6">
-            <div>
-              <p className="text-xs font-medium text-ink-dim tracking-wide uppercase mb-3">Cloud provider</p>
-              <div className="flex flex-col gap-2">
-                {PROVIDERS.map((p) => (
-                  <button
-                    key={p.id}
-                    disabled={!p.available}
-                    onClick={() => p.available && update("provider", p.id)}
-                    className={[
-                      "flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all",
-                      draft.provider === p.id && p.available ? "border-ink/20 bg-ink/5" : "border-edge hover:border-edge",
-                      !p.available ? "opacity-40 cursor-not-allowed" : "cursor-pointer",
-                    ].join(" ")}
-                  >
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink">{p.name}</p>
-                      {!p.available && <p className="text-xs text-ink-dim">Coming soon</p>}
-                    </div>
-                    {draft.provider === p.id && p.available && (
-                      <div className="w-4 h-4 rounded-full border-2 border-white flex items-center justify-center shrink-0">
-                        <div className="w-1.5 h-1.5 rounded-full bg-ink" />
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <Select label="Primary region" value={draft.region} onChange={(e) => update("region", e.target.value)}>
               {AWS_REGIONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.value} — {r.label}</option>
@@ -263,7 +192,7 @@ export function CreateProjectWizard() {
               >
                 <div className={[
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5",
-                  draft.environment === env.id ? "border-white" : "border-edge",
+                  draft.environment === env.id ? "border-ink" : "border-edge",
                 ].join(" ")}>
                   {draft.environment === env.id && <div className="w-1.5 h-1.5 rounded-full bg-ink" />}
                 </div>
@@ -277,18 +206,13 @@ export function CreateProjectWizard() {
 
           <div className="bg-card/60 border border-edge/60 rounded-xl p-4 mb-6 text-xs font-mono text-ink-dim space-y-1">
             <div className="flex justify-between"><span>name</span><span className="text-ink">{draft.name}</span></div>
-            <div className="flex justify-between items-center">
-              <span>space</span>
-              <span className="flex items-center gap-1.5 text-ink">
-                {selectedSpace && <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: selectedSpace.color }} />}
-                {selectedSpace?.name}
-              </span>
-            </div>
+            <div className="flex justify-between"><span>workspace</span><span className="text-ink">{workspace.name}</span></div>
+            <div className="flex justify-between"><span>folder</span><span className="text-ink">{selectedFolder?.name ?? "none"}</span></div>
             <div className="flex justify-between"><span>region</span><span className="text-ink">{draft.region}</span></div>
             <div className="flex justify-between"><span>environment</span><span className="text-ink">{draft.environment}</span></div>
           </div>
 
-          {apiError && <p className="text-xs text-red-400 mb-4">{apiError}</p>}
+          {apiError && <p className="text-xs text-red-500 mb-4">{apiError}</p>}
 
           <div className="flex justify-between gap-3">
             <Button variant="ghost" size="sm" type="button" onClick={() => setStep(2)}>Back</Button>

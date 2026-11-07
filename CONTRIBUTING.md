@@ -11,7 +11,7 @@ make install
 make check      # everything CI runs
 ```
 
-You need Node.js 22+, Go 1.27+ and Terraform (tested with 1.14). You do not need an AWS account.
+You need Node.js 22+, Go 1.27+ and Terraform (tested with 1.14). `make check` needs no AWS account, but running the web app does: it talks to an API you deploy, as in the [Quick start](README.md#quick-start). For components alone, use Storybook (`npm --prefix web run storybook`).
 
 The storage tests also run against local copies of DynamoDB and S3 when you ask for them. Without them, they skip themselves:
 

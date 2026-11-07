@@ -1,81 +1,82 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { authService } from "../services/auth";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface User {
-  sub:    string;
-  email:  string;
-  name?:  string;
-}
+import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { ApiError } from "../services/api";
+import { authService, type LoginResult } from "../services/auth";
+import { session } from "../services/session";
+import { usersService, type Profile } from "../services/users";
+import { workspacesCache } from "../services/workspaces";
 
 interface AuthContextValue {
-  user:            User | null;
   isAuthenticated: boolean;
-  token:           string | null;
-  login:           (email: string, password: string) => Promise<void>;
-  register:        (email: string, password: string, name: string) => Promise<void>;
-  logout:          () => void;
+  email: string;
+  // Who the API says you are. Null while it loads, or if it failed.
+  profile: Profile | null;
+  profileError: string | null;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  completeNewPassword: (email: string, challengeSession: string, newPassword: string) => Promise<LoginResult>;
+  logout: () => void;
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function decodeJwt(token: string): Record<string, unknown> {
-  try {
-    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(payload)) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function userFromToken(idToken: string): User {
-  const claims = decodeJwt(idToken);
-  return {
-    sub:   (claims["sub"]   as string) ?? "",
-    email: (claims["email"] as string) ?? "",
-    name:  (claims["name"]  as string) ?? undefined,
-  };
-}
-
-function loadStoredUser(): { user: User | null; token: string | null } {
-  const token   = localStorage.getItem("rivo_token");
-  const idToken = localStorage.getItem("rivo_id_token");
-  if (!token || !idToken) return { user: null, token: null };
-  return { user: userFromToken(idToken), token };
-}
-
-// ── Context ───────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const stored = loadStoredUser();
-  const [user,  setUser]  = useState<User | null>(stored.user);
-  const [token, setToken] = useState<string | null>(stored.token);
+  const refreshToken = useSyncExternalStore(session.subscribe, session.refreshToken);
+  const idToken = useSyncExternalStore(session.subscribe, session.idToken);
+  const isAuthenticated = !!refreshToken || !!idToken;
 
-  const login = async (email: string, password: string) => {
-    const tokens = await authService.login(email, password);
-    localStorage.setItem("rivo_token",    tokens.accessToken);
-    localStorage.setItem("rivo_id_token", tokens.idToken);
-    setToken(tokens.accessToken);
-    setUser(userFromToken(tokens.idToken));
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    usersService
+      .me()
+      .then((me) => {
+        if (!active) return;
+        setProfile(me);
+        setProfileError(null);
+      })
+      .catch((err: unknown) => {
+        // Only an answer about the account itself blocks the app. A network
+        // failure shows up on each page instead.
+        if (active && err instanceof ApiError && (err.status === 403 || err.status === 404)) {
+          setProfileError(err.message);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated]);
+
+  const accept = (result: LoginResult) => {
+    if (result.kind === "signed-in") session.store(result);
+    return result;
   };
 
-  const register = async (email: string, password: string, name: string) => {
-    await authService.register(email, password, name);
-    // Cognito requires email confirmation before login — caller redirects to /auth/confirm
-  };
+  const login = async (email: string, password: string) => accept(await authService.login(email, password));
+
+  const completeNewPassword = async (email: string, challengeSession: string, newPassword: string) =>
+    accept(await authService.newPassword(email, challengeSession, newPassword));
 
   const logout = () => {
-    localStorage.removeItem("rivo_token");
-    localStorage.removeItem("rivo_id_token");
-    setToken(null);
-    setUser(null);
+    session.clear();
+    workspacesCache.invalidate();
+    setProfile(null);
+    setProfileError(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!token, token, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        email: session.claims()?.email ?? profile?.email ?? "",
+        profile: isAuthenticated ? profile : null,
+        profileError: isAuthenticated ? profileError : null,
+        login,
+        completeNewPassword,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

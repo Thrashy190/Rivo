@@ -7,7 +7,7 @@ const meta: Meta<typeof ProjectsGrid> = {
   tags: ["autodocs"],
   decorators: [
     (Story) => (
-      <MemoryRouter initialEntries={["/projects"]}>
+      <MemoryRouter initialEntries={["/workspaces/acme"]}>
         <div className="bg-page min-h-screen">
           <Story />
         </div>
@@ -20,4 +20,10 @@ const meta: Meta<typeof ProjectsGrid> = {
 export default meta;
 type Story = StoryObj<typeof ProjectsGrid>;
 
-export const Default: Story = {};
+export const Empty: Story = {
+  args: { title: "All projects", projects: [], onCreate: () => {} },
+};
+
+export const Loading: Story = {
+  args: { title: "All projects", projects: [], loading: true },
+};

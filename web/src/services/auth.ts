@@ -1,45 +1,29 @@
-import { delay } from "./mockStore";
+import { api } from "./api";
 
-export interface AuthTokens {
-  accessToken: string;
-  idToken:     string;
-  refreshToken: string;
-  expiresIn:   number;
+interface LoginOutput {
+  idToken?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresIn?: number;
+  challenge?: string;
+  session?: string;
 }
 
-function toBase64Url(value: unknown): string {
-  const json = JSON.stringify(value);
-  const b64 = btoa(unescape(encodeURIComponent(json)));
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
+export type LoginResult =
+  | { kind: "signed-in"; idToken: string; refreshToken?: string }
+  // First sign-in with the temporary password from the invitation email.
+  | { kind: "new-password"; session: string };
 
-// Builds a decodable (but unsigned) JWT-shaped ID token so AuthContext's
-// client-side `decodeJwt` keeps working against dummy logins.
-function makeIdToken(email: string): string {
-  const header  = toBase64Url({ alg: "none", typ: "JWT" });
-  const payload = toBase64Url({
-    sub:   `mock-${email}`,
-    email,
-    name:  email.split("@")[0],
-  });
-  return `${header}.${payload}.mock-signature`;
+function toResult(out: LoginOutput): LoginResult {
+  if (out.idToken) return { kind: "signed-in", idToken: out.idToken, refreshToken: out.refreshToken };
+  if (out.challenge === "NEW_PASSWORD_REQUIRED" && out.session) return { kind: "new-password", session: out.session };
+  throw new Error(`Sign-in needs a step Rivo does not support yet (${out.challenge ?? "unknown"}).`);
 }
 
 export const authService = {
-  login: (email: string, password: string) =>
-    delay<AuthTokens>({
-      accessToken:  `mock-access-${email}-${password.length}`,
-      idToken:      makeIdToken(email),
-      refreshToken: `mock-refresh-${email}`,
-      expiresIn:    3600,
-    }),
+  login: async (email: string, password: string) =>
+    toResult(await api.post<LoginOutput>("/auth/login", { email, password }, { auth: false })),
 
-  register: (email: string, password: string, name: string) =>
-    delay({ message: `Account created for ${name} (${password.length}-char password).`, email }),
-
-  confirm: (email: string, code: string) =>
-    delay({ message: `Account ${email} confirmed with code ${code}.` }),
-
-  resend: (email: string) =>
-    delay({ message: `Confirmation code resent to ${email}.` }),
+  newPassword: async (email: string, session: string, newPassword: string) =>
+    toResult(await api.post<LoginOutput>("/auth/new-password", { email, session, newPassword }, { auth: false })),
 };

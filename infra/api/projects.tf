@@ -43,6 +43,7 @@ data "aws_caller_identity" "current" {}
 
 module "lambda_create_project" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "create-project"
   path_directory_file = "project/create-project/main.go"
   project_name        = var.project_name
@@ -81,6 +82,7 @@ module "lambda_create_project" {
 
 module "lambda_get_all_projects" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "get-all-projects"
   path_directory_file = "project/get-all-projects/main.go"
   project_name        = var.project_name
@@ -113,6 +115,7 @@ module "lambda_get_all_projects" {
 
 module "lambda_get_project" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "get-project"
   path_directory_file = "project/get-project/main.go"
   project_name        = var.project_name
@@ -145,6 +148,7 @@ module "lambda_get_project" {
 
 module "lambda_update_project" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "update-project"
   path_directory_file = "project/update-project/main.go"
   project_name        = var.project_name
@@ -183,6 +187,7 @@ module "lambda_update_project" {
 
 module "lambda_delete_project" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "delete-project"
   path_directory_file = "project/delete-project/main.go"
   project_name        = var.project_name
@@ -232,6 +237,7 @@ module "lambda_delete_project" {
 
 module "lambda_get_draft" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "get-draft"
   path_directory_file = "project/get-draft/main.go"
   project_name        = var.project_name
@@ -275,6 +281,7 @@ module "lambda_get_draft" {
 
 module "lambda_save_draft" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "save-draft"
   path_directory_file = "project/save-draft/main.go"
   project_name        = var.project_name
@@ -318,6 +325,7 @@ module "lambda_save_draft" {
 
 module "lambda_create_version" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "create-version"
   path_directory_file = "version/create-version/main.go"
   project_name        = var.project_name
@@ -367,6 +375,7 @@ module "lambda_create_version" {
 
 module "lambda_list_versions" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "list-versions"
   path_directory_file = "version/list-versions/main.go"
   project_name        = var.project_name
@@ -405,6 +414,7 @@ module "lambda_list_versions" {
 
 module "lambda_get_version" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "get-version"
   path_directory_file = "version/get-version/main.go"
   project_name        = var.project_name

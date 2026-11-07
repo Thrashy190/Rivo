@@ -48,6 +48,7 @@ module "folders_table" {
 
 module "lambda_create_workspace" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "create-workspace"
   path_directory_file = "workspace/create-workspace/main.go"
   project_name        = var.project_name
@@ -80,6 +81,7 @@ module "lambda_create_workspace" {
 
 module "lambda_list_workspaces" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "list-workspaces"
   path_directory_file = "workspace/list-workspaces/main.go"
   project_name        = var.project_name
@@ -112,6 +114,7 @@ module "lambda_list_workspaces" {
 
 module "lambda_get_workspace" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "get-workspace"
   path_directory_file = "workspace/get-workspace/main.go"
   project_name        = var.project_name
@@ -144,6 +147,7 @@ module "lambda_get_workspace" {
 
 module "lambda_list_members" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "list-members"
   path_directory_file = "member/list-members/main.go"
   project_name        = var.project_name
@@ -170,6 +174,7 @@ module "lambda_list_members" {
 
 module "lambda_add_member" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "add-member"
   path_directory_file = "member/add-member/main.go"
   project_name        = var.project_name
@@ -202,6 +207,7 @@ module "lambda_add_member" {
 
 module "lambda_update_member" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "update-member"
   path_directory_file = "member/update-member/main.go"
   project_name        = var.project_name
@@ -228,6 +234,7 @@ module "lambda_update_member" {
 
 module "lambda_remove_member" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "remove-member"
   path_directory_file = "member/remove-member/main.go"
   project_name        = var.project_name
@@ -254,6 +261,7 @@ module "lambda_remove_member" {
 
 module "lambda_create_folder" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "create-folder"
   path_directory_file = "folder/create-folder/main.go"
   project_name        = var.project_name
@@ -286,6 +294,7 @@ module "lambda_create_folder" {
 
 module "lambda_list_folders" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "list-folders"
   path_directory_file = "folder/list-folders/main.go"
   project_name        = var.project_name
@@ -318,15 +327,17 @@ module "lambda_list_folders" {
 
 module "lambda_delete_folder" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "delete-folder"
   path_directory_file = "folder/delete-folder/main.go"
   project_name        = var.project_name
   environment         = var.environment
 
   environment_variables = {
-    USERS_TABLE_NAME   = module.users_table.name
-    MEMBERS_TABLE_NAME = module.memberships_table.name
-    FOLDERS_TABLE_NAME = module.folders_table.name
+    USERS_TABLE_NAME    = module.users_table.name
+    MEMBERS_TABLE_NAME  = module.memberships_table.name
+    FOLDERS_TABLE_NAME  = module.folders_table.name
+    PROJECTS_TABLE_NAME = module.projects_table.name
   }
 
   statement = [
@@ -355,6 +366,7 @@ module "lambda_delete_folder" {
 
 module "lambda_add_owner" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "add-owner"
   path_directory_file = "workspace/add-owner/main.go"
   project_name        = var.project_name
@@ -393,6 +405,7 @@ module "lambda_add_owner" {
 
 module "lambda_remove_owner" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "remove-owner"
   path_directory_file = "workspace/remove-owner/main.go"
   project_name        = var.project_name
