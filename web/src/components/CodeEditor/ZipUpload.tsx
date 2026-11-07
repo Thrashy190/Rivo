@@ -1,22 +1,18 @@
 import { useRef, useState } from "react";
+import { formatBytes } from "../../utils/format";
 
 interface ZipUploadProps {
   value: File | null;
   onChange: (file: File | null) => void;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export function ZipUpload({ value, onChange }: ZipUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const accept = (file: File) => {
-    if (file.name.endsWith(".zip")) onChange(file);
+    if (file.name.toLowerCase().endsWith(".zip")) onChange(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {

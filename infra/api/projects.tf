@@ -35,6 +35,9 @@ module "diagrams_bucket" {
   bucket_name  = "${lower(var.project_name)}-${var.environment}-diagrams-${data.aws_caller_identity.current.account_id}"
   project_name = var.project_name
   environment  = var.environment
+
+  # Browsers upload Lambda packages straight to the bucket (see packages.tf).
+  upload_origins = compact([var.web_origin, var.dev_web_origin])
 }
 
 data "aws_caller_identity" "current" {}

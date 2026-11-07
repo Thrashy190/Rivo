@@ -51,6 +51,7 @@
 - Drag 15 AWS services onto a canvas, including Lambda, API Gateway, DynamoDB, S3, RDS and CloudFront.
 - Connect them with curved, straight or right-angle lines, and nest them inside regions, VPCs and subnets.
 - Configure each service from its panel, and define API Gateway routes on the connection itself.
+- Write a Lambda's code in the built-in editor, or upload its `.zip` of up to 50 MB. Both are saved with the project.
 - Inspect any diagram as JSON. Use the light or dark theme, or follow your system.
 
 **Work as a team**
@@ -142,7 +143,6 @@ Deployment permissions take effect once deployments exist. See [Limitations](#li
 ## Limitations
 
 - **Rivo cannot generate Terraform or deploy yet.** Deploying, its history and sign-in with GitHub or Google are hidden until they work.
-- **A Lambda's code and `.zip` are not saved.** The editor and the upload keep them only until you close them.
 - **Versions are only in the API.** The app saves drafts, but does not create or show numbered versions yet.
 - **No screen for platform administration yet.** Accounts that can open workspaces, and other administrators, are created through the API, as in [the deployment guide](docs/deployment.md#give-someone-access). Inviting people to a workspace, and adding its owners, works in the app.
 - **Access is per workspace.** Everyone in a workspace can see all its projects.
@@ -175,6 +175,7 @@ Each feature and fix is a [release](https://github.com/Thrashy190/Rivo/releases)
 | `admin_email must be a real email address` | Set a real address in your `.tfvars` file, in place of the placeholder. |
 | `make plan` fails while building a Lambda | Install Go 1.27 or newer: Terraform builds the Lambdas on your machine. |
 | The app asks you to choose a password | Normal the first time: invitations come with a temporary one. |
+| A `.zip` upload fails in `npm run dev` | The bucket allows uploads from `dev_web_origin`, `http://localhost:5173` by default. Use that port, or set the variable and apply `infra/api` again. |
 | The reset code or the invitation never arrives | Check spam. Cognito sends from `no-reply@verificationemail.com` and, without your own email service, about 50 emails a day. Someone who never signed in uses the temporary password from their invitation instead of a reset. |
 | `missing permission: ...` | That role cannot do this. See [Accounts and roles](#accounts-and-roles). |
 | `workspace not found`, and it exists | You are not a member. Ask its owner for an invitation. |

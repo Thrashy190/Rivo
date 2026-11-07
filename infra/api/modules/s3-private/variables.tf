@@ -18,3 +18,9 @@ variable "noncurrent_days" {
   default     = 30
   description = "Days to keep overwritten and deleted copies of an object"
 }
+
+variable "upload_origins" {
+  type        = list(string)
+  default     = []
+  description = "Web origins allowed to upload with presigned forms and to read the answer. Empty adds no CORS rules."
+}

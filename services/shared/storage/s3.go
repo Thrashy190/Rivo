@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -27,6 +28,18 @@ func DraftKey(workspaceID, projectID string) string {
 
 func VersionKey(workspaceID, projectID string, number int) string {
 	return fmt.Sprintf("%sversions/%d.json", ProjectPrefix(workspaceID, projectID), number)
+}
+
+// PackageKey is where a Lambda's .zip lives. Packages stay until the project is
+// deleted, because saved versions may still point at them.
+func PackageKey(workspaceID, projectID, packageID string) string {
+	return fmt.Sprintf("%spackages/%s.zip", ProjectPrefix(workspaceID, projectID), packageID)
+}
+
+// Upload is a presigned form POST: send Fields, then the file, to URL.
+type Upload struct {
+	URL    string
+	Fields map[string]string
 }
 
 type S3 struct {
@@ -86,14 +99,56 @@ func (s *S3) Put(ctx context.Context, key string, body []byte, ifMatch string, i
 
 // Exists reports whether an object is there, without reading it.
 func (s *S3) Exists(ctx context.Context, key string) (bool, error) {
-	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	_, err := s.Size(ctx, key)
 	if err != nil {
-		if isMissing(err) {
+		var apiErr *apierrors.ApiError
+		if errors.As(err, &apiErr) && apiErr.Code == apierrors.CodeNotFound {
 			return false, nil
 		}
-		return false, apierrors.Internal(fmt.Errorf("s3 HeadObject: %w", err))
+		return false, err
 	}
 	return true, nil
+}
+
+// Size returns an object's size in bytes, or a not found error.
+func (s *S3) Size(ctx context.Context, key string) (int64, error) {
+	out, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	if err != nil {
+		if isMissing(err) {
+			return 0, apierrors.NotFound("file")
+		}
+		return 0, apierrors.Internal(fmt.Errorf("s3 HeadObject: %w", err))
+	}
+	return aws.ToInt64(out.ContentLength), nil
+}
+
+// PresignUpload lets a browser POST one object of up to maxBytes to key, for
+// the given time, without passing through a Lambda. S3 rejects a larger file.
+func (s *S3) PresignUpload(ctx context.Context, key string, maxBytes int64, expires time.Duration) (*Upload, error) {
+	out, err := s3.NewPresignClient(s.client).PresignPostObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	}, func(o *s3.PresignPostOptions) {
+		o.Expires = expires
+		o.Conditions = []any{[]any{"content-length-range", 1, maxBytes}}
+	})
+	if err != nil {
+		return nil, apierrors.Internal(fmt.Errorf("s3 presign POST: %w", err))
+	}
+	return &Upload{URL: out.URL, Fields: out.Values}, nil
+}
+
+// PresignDownload returns a link that downloads key as fileName, for the given time.
+func (s *S3) PresignDownload(ctx context.Context, key, fileName string, expires time.Duration) (string, error) {
+	out, err := s3.NewPresignClient(s.client).PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket:                     aws.String(s.bucket),
+		Key:                        aws.String(key),
+		ResponseContentDisposition: aws.String(fmt.Sprintf("attachment; filename=%q", fileName)),
+	}, s3.WithPresignExpires(expires))
+	if err != nil {
+		return "", apierrors.Internal(fmt.Errorf("s3 presign GET: %w", err))
+	}
+	return out.URL, nil
 }
 
 // Copy duplicates an object inside the bucket.
