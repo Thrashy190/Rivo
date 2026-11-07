@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useLocation } from "react-router";
+import { useParams } from "react-router";
 import { useCanvas } from "../features/canvas/useCanvas";
 import { useServices } from "../features/canvas/useServices";
-import { CanvasTopBar, type CanvasView } from "../features/canvas/CanvasTopBar";
+import { CanvasTopBar } from "../features/canvas/CanvasTopBar";
 import { IconSidebar } from "../features/canvas/IconSidebar";
 import { CanvasArea } from "../features/canvas/CanvasArea";
 import { ServiceConfigPanel } from "../features/canvas/ServiceConfigPanel";
@@ -12,8 +12,12 @@ import { RightPanel } from "../features/canvas/RightPanel/RightPanel";
 import { ServicesModal } from "../features/canvas/modals/ServicesModal";
 import { CodeModal } from "../features/canvas/modals/CodeModal";
 import { ZipModal } from "../features/canvas/modals/ZipModal";
-import { DeploysView } from "../features/canvas/views/DeploysView";
-import { projectsService } from "../services/projects";
+import { useWorkspace } from "../features/workspace/workspaceContext";
+import { FullPageMessage } from "../features/workspace/FullPageMessage";
+import { Button } from "../components/Button/Button";
+import { useSnackbar } from "../context/SnackbarContext";
+import { projectsService, DIAGRAM_FORMAT, type ApiProject } from "../services/projects";
+import { ApiError, errorMessage } from "../services/api";
 
 type LambdaModal = "code" | "zip" | null;
 
@@ -22,10 +26,10 @@ function snapshotCanvas(nodes: unknown, edges: unknown): string {
 }
 
 export function CanvasPage() {
-  const { id = "" } = useParams<{ id: string }>();
-  const location = useLocation();
-  const projectName =
-    (location.state as { projectName?: string } | null)?.projectName ?? id;
+  const { projectId = "" } = useParams<{ projectId: string }>();
+  const { workspace, can } = useWorkspace();
+  const { push } = useSnackbar();
+  const canSave = can("projects:update");
 
   const {
     nodes, edges, viewport, setViewport,
@@ -36,41 +40,83 @@ export function CanvasPage() {
 
   const { byId: serviceById } = useServices();
 
+  const [project, setProject] = useState<ApiProject | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotCanvas([], []));
+  // The draft's version in S3. Saving sends it back, so a save never
+  // overwrites someone else's newer one.
+  const etag = useRef("");
+  const [conflict, setConflict] = useState(false);
+  // Which load the canvas shows. Editing waits for it: a draft arriving after
+  // someone started drawing would replace their work.
+  const [loaded, setLoaded] = useState(-1);
 
-  // ── Load project on mount ─────────────────────────────────────────────────
-  const bootstrapped = useRef(false);
+  // ── Load the project and its draft ───────────────────────────────────────
+  const [reloads, setReloads] = useState(0);
   useEffect(() => {
-    if (!id || bootstrapped.current) return;
-    bootstrapped.current = true;
-
-    projectsService.get(id).then(({ project }) => {
-      const model = project.model;
-      if (model?.nodes?.length > 0) {
-        resetCanvas(model.nodes, model.edges ?? []);
-        setSavedSnapshot(snapshotCanvas(model.nodes, model.edges ?? []));
-      }
-    }).catch(console.error);
-  }, [id]);
+    let active = true;
+    Promise.all([projectsService.get(workspace.id, projectId), projectsService.getDraft(workspace.id, projectId)])
+      .then(([meta, draft]) => {
+        if (!active) return;
+        setProject(meta);
+        etag.current = draft.etag;
+        resetCanvas(draft.model.nodes, draft.model.edges);
+        setSavedSnapshot(snapshotCanvas(draft.model.nodes, draft.model.edges));
+        setConflict(false);
+        setLoaded(reloads);
+      })
+      .catch((err: unknown) => active && setLoadError(errorMessage(err, "Could not open this project.")));
+    return () => {
+      active = false;
+    };
+  }, [workspace.id, projectId, reloads, resetCanvas]);
 
   // ── Change detection ──────────────────────────────────────────────────────
   const [isSaving, setIsSaving] = useState(false);
 
   const currentSnapshot = snapshotCanvas(nodes, edges);
-  const isDirty = currentSnapshot !== savedSnapshot;
+  const isDirty = canSave && currentSnapshot !== savedSnapshot;
 
   const handleSave = async () => {
-    if (!isDirty || isSaving) return;
+    if (!isDirty || isSaving || conflict) return;
     setIsSaving(true);
     try {
-      await projectsService.update(id, nodes, edges);
+      etag.current = await projectsService.saveDraft(
+        workspace.id,
+        projectId,
+        { version: DIAGRAM_FORMAT, nodes, edges },
+        etag.current,
+      );
       setSavedSnapshot(currentSnapshot);
     } catch (err) {
-      console.error("Save failed", err);
+      if (err instanceof ApiError && err.status === 409) setConflict(true);
+      else push(errorMessage(err, "Could not save the diagram."), "error");
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Ctrl+S / Cmd+S saves, and leaving with unsaved changes asks first.
+  const saveRef = useRef(handleSave);
+  useEffect(() => {
+    saveRef.current = handleSave;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void saveRef.current();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+  useEffect(() => {
+    if (!isDirty) return;
+    const onLeave = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, [isDirty]);
 
   // ── Services catalog wrapper ──────────────────────────────────────────────
   const addNodeFromCatalog = (serviceId: string, position: { x: number; y: number }) => {
@@ -79,7 +125,6 @@ export function CanvasPage() {
   };
 
   // ── UI state ──────────────────────────────────────────────────────────────
-  const [activeView,    setActiveView]    = useState<CanvasView>("canvas");
   const [animated,      setAnimated]      = useState(
     () => localStorage.getItem("rivo_canvas_animated") === "true"
   );
@@ -120,17 +165,32 @@ export function CanvasPage() {
     addNodeFromCatalog(serviceId, { x, y });
   };
 
+  if (!loadError && loaded !== reloads) {
+    return <FullPageMessage title="Opening the project…" />;
+  }
+
+  if (loadError) {
+    return (
+      <FullPageMessage
+        title="This project can't be opened"
+        message={loadError}
+        action={<Button size="sm" variant="secondary" onClick={() => history.back()}>Go back</Button>}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-page overflow-hidden">
       <CanvasTopBar
-        projectName={projectName}
+        projectName={project?.name ?? "Loading…"}
+        workspaceName={workspace.name}
+        workspaceHref={`/workspaces/${workspace.id}${project?.folderId ? `/folders/${project.folderId}` : ""}`}
         nodeCount={nodes.length}
         viewport={viewport}
         isDirty={isDirty}
         isSaving={isSaving}
-        activeView={activeView}
+        canSave={canSave}
         animated={animated}
-        onViewChange={setActiveView}
         onToggleAnimations={() => setAnimated((v) => {
           const next = !v;
           localStorage.setItem("rivo_canvas_animated", String(next));
@@ -141,9 +201,16 @@ export function CanvasPage() {
         onSave={handleSave}
       />
 
-      {/* ── Canvas view ──────────────────────────────────────────────────── */}
-      {activeView === "canvas" && (
-        <div className="flex flex-1 overflow-hidden">
+      {conflict && (
+        <div role="alert" className="flex items-center gap-3 px-4 py-2.5 border-b border-amber-500/30 bg-amber-500/10 text-sm">
+          <span className="flex-1 text-ink">
+            Someone else saved this diagram after you opened it. Reload to see their version: your unsaved changes will be lost.
+          </span>
+          <Button size="sm" variant="secondary" onClick={() => setReloads((n) => n + 1)}>Reload</Button>
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden">
           <IconSidebar
             servicesOpen={servicesOpen}
             onToggleServices={() => setServicesOpen((v) => !v)}
@@ -213,14 +280,6 @@ export function CanvasPage() {
             />
           )}
         </div>
-      )}
-
-      {/* ── Deploys view ─────────────────────────────────────────────────── */}
-      {activeView === "deploys" && (
-        <div className="flex-1 overflow-hidden">
-          <DeploysView projectName={projectName} />
-        </div>
-      )}
 
       {servicesOpen && (
         <ServicesModal

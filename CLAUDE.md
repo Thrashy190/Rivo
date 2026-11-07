@@ -15,7 +15,7 @@ The product name is **Rivo** on screen and `rivo` in identifiers.
 ```bash
 make install             # web dependencies
 make check               # everything CI runs. Run it before finishing.
-npm --prefix web run dev # web app on sample data
+npm --prefix web run dev # web app, against RIVO_API_URL in web/.env.local
 npm --prefix web run storybook
 ```
 
@@ -41,7 +41,9 @@ To include the storage tests, start DynamoDB Local and S3Mock, and set `RIVO_DYN
 ## Layout
 
 - `web/`: React 19, Vite, TypeScript and Tailwind v4, configured in `src/index.css`.
-  - `src/services/`: data access. `mockStore.ts` is a browser-only fake database; swap one module at a time to real API calls, keeping its exported shapes.
+  - `src/services/`: one module per API area. `api.ts` adds the ID token, renews it with the refresh token once on a 401, and turns `{error: {code, message}}` into `ApiError`.
+  - `src/features/workspace/`: `WorkspaceProvider` loads the workspace in the URL and its folders; `useWorkspace().can(...)` hides what the role cannot do. `services/workspaces.ts` mirrors the role table in `services/shared/models/workspace`: change both together.
+  - `features/canvas/views/` and `features/projects/Global*View.tsx` are the simulated deploy history, kept unrouted as a starting point for the deployment dashboard.
   - `src/features/canvas/`: hand-written canvas with no graph library. `useCanvas.ts` holds live state; `types/infra.ts` is the saved format.
   - `aws-services.tsx` and `service-config-schemas.ts`: the static service catalog. `edgeKinds.ts` decides which connections have configuration.
 - `services/`: Go Lambdas, one module per action, plus `shared/`. See `docs/services.md`.
@@ -52,8 +54,8 @@ To include the storage tests, start DynamoDB Local and S3Mock, and set `RIVO_DYN
 
 In order:
 
-1. Add project-level access, so a workspace can limit who sees each project. Add presigned uploads for Lambda packages.
-2. Add CORS, connect the web app to the API, add workspace screens and remove `mockStore.ts`. Hide simulated features until they work: Deploy, Invite members, Settings, GitHub and Google sign-in, and the deploy history.
+1. Add project-level access, so a workspace can limit who sees each project. Add presigned uploads for Lambda packages, and save a Lambda's code and `.zip` with the project (the editor and upload keep nothing today).
+2. Show and create versions in the app, add password reset (Cognito ForgotPassword), and a platform administration screen for accounts.
 3. Generate Terraform from the diagram and let people download it.
 4. Connect AWS accounts (role ARN plus external ID), run plan, approval and apply on Fargate, and show pipelines in a dashboard. Record task duration per workspace, because hosting may later bill by infrastructure and usage time.
 5. Push the diagram and Terraform to a GitHub repository through a GitHub App.

@@ -19,6 +19,8 @@ const meta: Meta<typeof CanvasTopBar> = {
   ],
   args: {
     projectName: "production-vpc",
+    workspaceName: "Acme",
+    workspaceHref: "/workspaces/acme",
     nodeCount: 0,
     viewport: { x: 0, y: 0, zoom: 1 },
     onZoomChange: () => {},
@@ -30,6 +32,14 @@ export default meta;
 type Story = StoryObj<typeof CanvasTopBar>;
 
 export const Empty: Story = {};
+
+export const Unsaved: Story = {
+  args: { isDirty: true, onSave: () => {} },
+};
+
+export const ViewOnly: Story = {
+  args: { canSave: false },
+};
 
 export const WithNodes: Story = {
   args: {

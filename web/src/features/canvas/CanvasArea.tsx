@@ -306,9 +306,9 @@ export function CanvasArea({
       {nodes.length === 0 && !isDragOver && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
           <div className="text-center">
-            <p className="text-sm text-ink-dim mb-1">Canvas vacío</p>
+            <p className="text-sm text-ink-dim mb-1">The canvas is empty</p>
             <p className="text-xs text-ink-dim/60">
-              Arrastra servicios desde el panel izquierdo
+              Drag services in from the catalog on the left
             </p>
           </div>
         </div>

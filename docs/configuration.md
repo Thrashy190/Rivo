@@ -36,8 +36,9 @@ Set these in `infra/web/environments/<env>.tfvars`.
 
 ## Web app
 
-Set this in `web/.env`, based on `web/.env.example`.
+Set these in `web/.env.local`, based on `web/.env.example`. Git ignores it.
 
 | Variable | Needed? | What it is |
 |---|---|---|
-| `VITE_API_URL` | Not yet | Base URL of the API. It has no effect until the web app is connected to the API. |
+| `RIVO_API_URL` | For `npm run dev` | Base URL of the API (`terraform output api_base_url`). The development server forwards `/api` to it. |
+| `VITE_API_URL` | For a hosted build | Base URL of the API, written into the bundle at build time. Without it the app calls `/api` on its own site. |

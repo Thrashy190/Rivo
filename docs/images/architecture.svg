@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="title desc">
   <title id="title">How Rivo fits together</title>
-  <desc id="desc">Everything runs in your AWS account and Terraform creates it. The web app is served from S3 and CloudFront, and it is not connected to the API yet. API Gateway checks the Cognito token and calls Go Lambdas, which keep workspaces and projects in DynamoDB and diagrams in S3. Cognito handles sign-in and emails invitations.</desc>
+  <desc id="desc">Everything runs in your AWS account and Terraform creates it. The web app is served from S3 and CloudFront and calls the API. API Gateway checks the Cognito token and calls Go Lambdas, which keep workspaces and projects in DynamoDB and diagrams in S3. Cognito handles sign-in and emails invitations.</desc>
   <defs>
     <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#1b2526"/></pattern>
     <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cf0e2"/><stop offset="1" stop-color="#22b8a8"/></linearGradient>
@@ -39,7 +39,7 @@
   <rect x="290" y="166" width="220" height="104" rx="12" class="card"/>
   <text x="310" y="204" class="t">Web app</text>
   <text x="310" y="228" class="d">S3 and CloudFront</text>
-  <text x="310" y="248" class="d">Sample data for now</text>
+  <text x="310" y="248" class="d">Calls the API with your token</text>
 
   <rect x="290" y="342" width="220" height="104" rx="12" class="card"/>
   <text x="310" y="380" class="t">Cognito</text>
@@ -74,8 +74,8 @@
 
   <path d="M210 262H250Q270 262 270 242V228Q270 218 280 218H288" class="g" marker-end="url(#a-grey)"/>
   <path d="M210 298H250Q270 298 270 318V384Q270 394 280 394H288" class="g" marker-end="url(#a-grey)"/>
-  <path d="M510 218H598" class="g dash" marker-end="url(#a-grey)"/>
-  <text x="555" y="206" text-anchor="middle" class="label">not connected</text>
+  <path d="M510 218H598" class="e" marker-end="url(#a-teal)"/>
+  <text x="555" y="206" text-anchor="middle" class="tl">HTTPS</text>
   <path d="M710 270V340" class="e" marker-end="url(#a-teal)"/>
   <path d="M820 435H908" class="e" marker-end="url(#a-teal)"/>
   <path d="M820 380H850Q865 380 865 365V233Q865 218 880 218H908" class="e" marker-end="url(#a-teal)"/>

@@ -1,6 +1,8 @@
 import type { Preview, Decorator } from '@storybook/react-vite'
 import { useEffect, type ReactNode } from 'react'
 import '../src/index.css'
+import { SnackbarProvider } from '../src/context/SnackbarContext'
+import { AuthProvider } from '../src/context/AuthContext'
 
 function ThemeRoot({ theme, children }: { theme: string; children: ReactNode }) {
   useEffect(() => {
@@ -16,6 +18,16 @@ const withTheme: Decorator = (Story, context) => (
   <ThemeRoot theme={(context.globals.theme as string) ?? 'dark'}>
     <Story />
   </ThemeRoot>
+)
+
+// Components read the session and push notifications. Signed out, the auth
+// provider makes no API calls.
+const withProviders: Decorator = (Story) => (
+  <SnackbarProvider>
+    <AuthProvider>
+      <Story />
+    </AuthProvider>
+  </SnackbarProvider>
 )
 
 const preview: Preview = {
@@ -36,7 +48,7 @@ const preview: Preview = {
   initialGlobals: {
     theme: 'dark',
   },
-  decorators: [withTheme],
+  decorators: [withTheme, withProviders],
   parameters: {
     backgrounds: { disable: true },
     controls: {
