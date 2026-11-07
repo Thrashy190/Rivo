@@ -5,6 +5,7 @@ package project
 import (
 	"encoding/json"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -18,9 +19,15 @@ const (
 	// MaxDiagramBytes keeps a diagram under the 6 MB limit of a Lambda response,
 	// leaving room for the fields around it.
 	MaxDiagramBytes = 5 * 1024 * 1024
+
+	// MaxPackageBytes is the largest .zip a Lambda accepts as a direct upload.
+	MaxPackageBytes = 50 * 1024 * 1024
 )
 
-var regionPattern = regexp.MustCompile(`^[a-z]{2}(-[a-z]+)+-[0-9]+$`)
+var (
+	regionPattern  = regexp.MustCompile(`^[a-z]{2}(-[a-z]+)+-[0-9]+$`)
+	packagePattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+)
 
 type Project struct {
 	WorkspaceID   string `dynamodbav:"workspace_id" json:"workspaceId"`
@@ -76,6 +83,38 @@ type DiagramResponse struct {
 
 // EmptyDiagram is what a project shows before its first save.
 var EmptyDiagram = json.RawMessage(`{"version":"canvas/1","nodes":[],"edges":[]}`)
+
+// CreatePackageInput describes a Lambda's .zip before it is uploaded.
+type CreatePackageInput struct {
+	FileName string `json:"fileName"`
+	Size     int64  `json:"size"`
+}
+
+// PackageUpload is where the browser sends the .zip: a form POST straight to
+// S3 with these fields, which also limit its size.
+type PackageUpload struct {
+	PackageID string            `json:"packageId"`
+	URL       string            `json:"url"`
+	Fields    map[string]string `json:"fields"`
+	ExpiresAt int64             `json:"expiresAt"`
+}
+
+// PackageDownload is a short-lived link to an uploaded .zip.
+type PackageDownload struct {
+	PackageID string `json:"packageId"`
+	Size      int64  `json:"size"`
+	URL       string `json:"url"`
+}
+
+// ValidPackageID only accepts the IDs Rivo generates. The ID becomes part of an
+// S3 key, so anything else could point outside the project.
+func ValidPackageID(id string) bool {
+	return packagePattern.MatchString(id)
+}
+
+func ValidPackageName(name string) bool {
+	return len(name) > 4 && len(name) <= 200 && strings.HasSuffix(strings.ToLower(name), ".zip") && !strings.ContainsAny(name, "\"/\r\n")
+}
 
 func ValidRegion(region string) bool {
 	return regionPattern.MatchString(region)

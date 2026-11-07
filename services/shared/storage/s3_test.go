@@ -1,8 +1,11 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -36,6 +39,24 @@ func code(err error) string {
 //
 // Real case: copying a missing draft looked like a server error, because the SDK
 // does not model NoSuchKey on CopyObject.
+func postForm(t *testing.T, upload *Upload, file []byte) int {
+	t.Helper()
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	for k, v := range upload.Fields {
+		_ = form.WriteField(k, v)
+	}
+	part, _ := form.CreateFormFile("file", "function.zip")
+	_, _ = part.Write(file)
+	_ = form.Close()
+	res, err := http.Post(upload.URL, form.FormDataContentType(), &body)
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer res.Body.Close()
+	return res.StatusCode
+}
+
 func TestDiagramLifecycle(t *testing.T) {
 	endpoint := os.Getenv("RIVO_S3_ENDPOINT")
 	if endpoint == "" {
@@ -100,6 +121,31 @@ func TestDiagramLifecycle(t *testing.T) {
 	if body, _, _ := store.Get(ctx, version); string(body) != `{"v":2}` {
 		t.Fatalf("a version must not change with the draft: %s", body)
 	}
+
+	// A package goes from the browser straight to S3 with a presigned form.
+	pkg := PackageKey("acme", "p", "0b8c7f5e-2d3a-4b1c-9e8f-7a6b5c4d3e2f")
+	upload, err := store.PresignUpload(ctx, pkg, 1024, time.Minute)
+	if err != nil {
+		t.Fatalf("presign upload: %v", err)
+	}
+	zip := []byte("PK\x03\x04 zip bytes")
+	if status := postForm(t, upload, zip); status >= 300 {
+		t.Fatalf("upload answered %d", status)
+	}
+	if size, err := store.Size(ctx, pkg); err != nil || size != int64(len(zip)) {
+		t.Fatalf("size: %d, %v", size, err)
+	}
+	// S3 itself rejects a file over the limit. S3Mock does not check the
+	// policy, so that part is only verified against AWS.
+	link, err := store.PresignDownload(ctx, pkg, "function.zip", time.Minute)
+	if err != nil {
+		t.Fatalf("presign download: %v", err)
+	}
+	res, err := http.Get(link)
+	if err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("download: %v %v", res, err)
+	}
+	res.Body.Close()
 
 	other := DraftKey("globex", "p")
 	if _, err := store.Put(ctx, other, []byte(`{}`), "", false); err != nil {

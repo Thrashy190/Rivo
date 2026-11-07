@@ -34,3 +34,32 @@ func TestValidRegion(t *testing.T) {
 		}
 	}
 }
+
+func TestValidPackageID(t *testing.T) {
+	if !ValidPackageID("0b8c7f5e-2d3a-4b1c-9e8f-7a6b5c4d3e2f") {
+		t.Error("a generated ID must be valid")
+	}
+	// The ID becomes part of an S3 key, so nothing that could leave the
+	// project's prefix may pass.
+	for _, id := range []string{"", "../draft", "0b8c7f5e-2d3a-4b1c-9e8f-7a6b5c4d3e2f/../../x", "ABC", "0b8c7f5e2d3a4b1c9e8f7a6b5c4d3e2f"} {
+		if ValidPackageID(id) {
+			t.Errorf("%q must be rejected", id)
+		}
+	}
+}
+
+func TestValidPackageName(t *testing.T) {
+	for name, want := range map[string]bool{
+		"function.zip":     true,
+		"Build.ZIP":        true,
+		"function.tar.gz":  false,
+		".zip":             false,
+		`a"b.zip`:          false,
+		"dir/function.zip": false,
+		"line\nbreak.zip":  false,
+	} {
+		if got := ValidPackageName(name); got != want {
+			t.Errorf("%q: got %v, want %v", name, got, want)
+		}
+	}
+}

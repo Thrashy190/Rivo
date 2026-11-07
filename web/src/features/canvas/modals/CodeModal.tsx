@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { CodeEditor, type CodeLanguage } from "../../../components/CodeEditor/CodeEditor";
 import { AWS_SERVICE_CATEGORIES } from "../aws-services";
 import type { CanvasNode } from "../useCanvas";
+import { MAX_INLINE_CODE_BYTES } from "../lambdaSource";
 
 const RUNTIME_LANGUAGE: Record<string, CodeLanguage> = {
   "nodejs20.x": "javascript",
@@ -86,20 +87,34 @@ function getServiceIcon(type: string) {
 
 interface CodeModalProps {
   node: CanvasNode;
+  // Roles that cannot change the project read the code without saving it.
+  readOnly?: boolean;
+  onSave: (code: string) => void;
   onClose: () => void;
 }
 
-export function CodeModal({ node, onClose }: CodeModalProps) {
+export function CodeModal({ node, readOnly = false, onSave, onClose }: CodeModalProps) {
   const runtime = String(node.config.runtime ?? "nodejs20.x");
   const language: CodeLanguage = RUNTIME_LANGUAGE[runtime] ?? "javascript";
-  const [code, setCode] = useState(DEFAULT_CODE[language]);
-  const [saved, setSaved] = useState(false);
+  const [initial] = useState(() =>
+    typeof node.config.code === "string" ? node.config.code : DEFAULT_CODE[language],
+  );
+  const [code, setCode] = useState(initial);
 
   const icon = getServiceIcon(node.type);
+  const bytes = new TextEncoder().encode(code).length;
+  const tooBig = bytes > MAX_INLINE_CODE_BYTES;
+  const changed = code !== initial || node.config.source !== "inline";
 
   const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (tooBig) return;
+    onSave(code);
+    onClose();
+  };
+
+  const handleClose = () => {
+    if (!readOnly && code !== initial && !window.confirm("Close without keeping your changes to the code?")) return;
+    onClose();
   };
 
   return createPortal(
@@ -122,20 +137,27 @@ export function CodeModal({ node, onClose }: CodeModalProps) {
         </span>
 
         {/* Actions */}
-        <button
-          onClick={handleSave}
-          className={[
-            "px-3 h-8 rounded-lg text-xs font-medium transition-colors shrink-0",
-            saved
-              ? "bg-emerald-600 text-white"
-              : "bg-indigo-600 hover:bg-indigo-500 text-white",
-          ].join(" ")}
-        >
-          {saved ? "Saved ✓" : "Save code"}
-        </button>
+        {tooBig && (
+          <span className="text-xs text-red-500 shrink-0">
+            Over {MAX_INLINE_CODE_BYTES / 1024} KB: upload a .zip instead
+          </span>
+        )}
+        {readOnly ? (
+          <span className="text-[10px] text-ink-dim border border-edge rounded px-1.5 py-0.5 shrink-0">View only</span>
+        ) : (
+          <button
+            onClick={handleSave}
+            disabled={tooBig || !changed}
+            title="Keeps the code in the diagram. Save the diagram to store it."
+            className="px-3 h-8 rounded-lg text-xs font-medium transition-colors shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Use this code
+          </button>
+        )}
 
         <button
-          onClick={onClose}
+          aria-label="Close the code editor"
+          onClick={handleClose}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-dim hover:text-ink hover:bg-raised transition-colors shrink-0"
         >
           <svg viewBox="0 0 14 14" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -144,7 +166,7 @@ export function CodeModal({ node, onClose }: CodeModalProps) {
         </button>
       </div>
 
-      {/* File tabs strip (placeholder for multi-file support) */}
+      {/* File name */}
       <div className="flex items-center gap-0 px-4 border-b border-edge/60 bg-card/30 shrink-0">
         <div className="flex items-center gap-2 px-3 py-2 border-b-2 border-indigo-500 text-xs text-indigo-400 font-medium">
           <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -152,12 +174,6 @@ export function CodeModal({ node, onClose }: CodeModalProps) {
           </svg>
           {language === "javascript" ? "index.js" : language === "python" ? "handler.py" : language === "go" ? "main.go" : "Handler.java"}
         </div>
-        <button className="ml-2 flex items-center gap-1.5 px-2 py-1.5 text-xs text-ink-dim hover:text-ink hover:bg-raised rounded-md transition-colors">
-          <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M6 1v10M1 6h10" />
-          </svg>
-          Add file
-        </button>
       </div>
 
       {/* Editor */}
@@ -165,6 +181,7 @@ export function CodeModal({ node, onClose }: CodeModalProps) {
         <CodeEditor
           value={code}
           onChange={setCode}
+          readOnly={readOnly}
           language={language}
           height="100%"
         />
