@@ -1,4 +1,5 @@
 import { edgeRoutes } from "./connections";
+import { tableIndexes } from "./tableIndexes";
 import type { CanvasEdge, CanvasNode } from "./useCanvas";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -8,7 +9,7 @@ export function nodeSummary(node: CanvasNode, nodes: CanvasNode[], edges: Canvas
   const c = node.config;
   switch (node.type) {
     case "lambda":
-      return `${c.runtime ?? "nodejs22.x"} · ${c.memory ?? 128} MB`;
+      return `${c.runtime ?? "python3.13"} · ${c.memory ?? 128} MB`;
     case "api-gateway": {
       const routes = edges
         .filter((e) => e.sourceId === node.id || e.targetId === node.id)
@@ -19,8 +20,11 @@ export function nodeSummary(node: CanvasNode, nodes: CanvasNode[], edges: Canvas
         .reduce((sum, e) => sum + Math.max(edgeRoutes(e).length, 1), 0);
       return `HTTP API · ${plural(routes, "route")}`;
     }
-    case "dynamodb":
-      return c.sortKey ? `Key ${c.partitionKey ?? "id"} + ${c.sortKey}` : `Key ${c.partitionKey ?? "id"}`;
+    case "dynamodb": {
+      const key = c.sortKey ? `Key ${c.partitionKey ?? "id"} + ${c.sortKey}` : `Key ${c.partitionKey ?? "id"}`;
+      const indexes = tableIndexes(node).length;
+      return indexes ? `${key} · ${indexes} ${indexes === 1 ? "index" : "indexes"}` : key;
+    }
     case "s3":
       return [c.blockPublicAccess === false ? "Bucket" : "Private bucket", c.versioning ? "versioned" : ""].filter(Boolean).join(" · ");
     case "cloudfront":

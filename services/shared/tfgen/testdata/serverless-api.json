@@ -2,12 +2,12 @@
   "version": "canvas/1",
   "nodes": [
     {
-      "id": "api-gateway-1",
+      "id": "api",
       "type": "api-gateway",
       "label": "API Gateway",
       "position": {
         "x": 0,
-        "y": 0
+        "y": 220
       },
       "config": {
         "name": "items-api",
@@ -18,52 +18,165 @@
       }
     },
     {
-      "id": "lambda-2",
+      "id": "fn-list-items",
       "type": "lambda",
       "label": "Lambda Function",
       "position": {
-        "x": 300,
+        "x": 340,
         "y": 0
       },
       "config": {
-        "name": "items",
-        "runtime": "nodejs22.x",
+        "runtime": "python3.13",
+        "architecture": "arm64",
+        "handler": "app.handler",
         "memory": 256,
         "timeout": 10,
-        "handler": "index.handler",
-        "architecture": "arm64",
         "source": "inline",
-        "code": "const { DynamoDBClient } = require(\"@aws-sdk/client-dynamodb\");\nconst { DynamoDBDocumentClient, PutCommand, ScanCommand } = require(\"@aws-sdk/lib-dynamodb\");\n\nconst db = DynamoDBDocumentClient.from(new DynamoDBClient({}));\nconst table = process.env.ITEMS_TABLE;\n\nexports.handler = async (event) => {\n  if (event.requestContext.http.method === \"POST\") {\n    const raw = event.isBase64Encoded ? Buffer.from(event.body, \"base64\").toString() : event.body;\n    const item = { id: Date.now().toString(), ...JSON.parse(raw || \"{}\") };\n    await db.send(new PutCommand({ TableName: table, Item: item }));\n    return { statusCode: 201, body: JSON.stringify(item) };\n  }\n  const { Items } = await db.send(new ScanCommand({ TableName: table }));\n  return { statusCode: 200, body: JSON.stringify(Items) };\n};\n"
+        "name": "list-items",
+        "code": "\"\"\"GET /items: one page of items, newest first within the page.\n\nQuery parameters:\n  limit   1 to 100, 25 by default\n  cursor  the nextCursor of the previous page\n\"\"\"\nimport base64\nimport json\nimport logging\nimport os\nfrom decimal import Decimal\n\nimport boto3\n\nlogger = logging.getLogger()\nlogger.setLevel(logging.INFO)\n\ntable = boto3.resource(\"dynamodb\").Table(os.environ[\"ITEMS_TABLE\"])\n\n\ndef handler(event, context):\n    params = event.get(\"queryStringParameters\") or {}\n    try:\n        limit = int(params.get(\"limit\", \"25\"))\n    except ValueError:\n        return error(400, \"invalid_limit\", \"limit must be a number from 1 to 100\")\n    if not 1 <= limit <= 100:\n        return error(400, \"invalid_limit\", \"limit must be a number from 1 to 100\")\n\n    scan = {\"Limit\": limit}\n    if params.get(\"cursor\"):\n        try:\n            scan[\"ExclusiveStartKey\"] = json.loads(base64.urlsafe_b64decode(params[\"cursor\"]))\n        except ValueError:\n            return error(400, \"invalid_cursor\", \"cursor is not one this API returned\")\n\n    page = table.scan(**scan)\n    items = sorted(page.get(\"Items\", []), key=lambda i: i.get(\"createdAt\", \"\"), reverse=True)\n    cursor = None\n    if \"LastEvaluatedKey\" in page:\n        cursor = base64.urlsafe_b64encode(json.dumps(page[\"LastEvaluatedKey\"], default=str).encode()).decode()\n\n    logger.info(json.dumps({\"route\": \"GET /items\", \"count\": len(items), \"requestId\": context.aws_request_id}))\n    return respond(200, {\"items\": items, \"nextCursor\": cursor})\n\n\ndef respond(status, body):\n    return {\n        \"statusCode\": status,\n        \"headers\": {\"Content-Type\": \"application/json\"},\n        \"body\": json.dumps(body, default=to_json),\n    }\n\n\ndef error(status, code, message):\n    return respond(status, {\"error\": {\"code\": code, \"message\": message}})\n\n\ndef to_json(value):\n    # DynamoDB returns numbers as Decimal.\n    if isinstance(value, Decimal):\n        return int(value) if value % 1 == 0 else float(value)\n    raise TypeError(f\"{type(value).__name__} is not JSON\")\n"
       }
     },
     {
-      "id": "dynamodb-3",
+      "id": "fn-get-item",
+      "type": "lambda",
+      "label": "Lambda Function",
+      "position": {
+        "x": 340,
+        "y": 110
+      },
+      "config": {
+        "runtime": "python3.13",
+        "architecture": "arm64",
+        "handler": "app.handler",
+        "memory": 256,
+        "timeout": 10,
+        "source": "inline",
+        "name": "get-item",
+        "code": "\"\"\"GET /items/{id}: one item, or 404.\"\"\"\nimport json\nimport logging\nimport os\nfrom decimal import Decimal\n\nimport boto3\n\nlogger = logging.getLogger()\nlogger.setLevel(logging.INFO)\n\ntable = boto3.resource(\"dynamodb\").Table(os.environ[\"ITEMS_TABLE\"])\n\n\ndef handler(event, context):\n    item_id = (event.get(\"pathParameters\") or {}).get(\"id\", \"\")\n    item = table.get_item(Key={\"id\": item_id}).get(\"Item\")\n    logger.info(json.dumps({\"route\": \"GET /items/{id}\", \"id\": item_id, \"found\": item is not None, \"requestId\": context.aws_request_id}))\n    if item is None:\n        return error(404, \"not_found\", f\"there is no item {item_id}\")\n    return respond(200, item)\n\n\ndef respond(status, body):\n    return {\n        \"statusCode\": status,\n        \"headers\": {\"Content-Type\": \"application/json\"},\n        \"body\": json.dumps(body, default=to_json),\n    }\n\n\ndef error(status, code, message):\n    return respond(status, {\"error\": {\"code\": code, \"message\": message}})\n\n\ndef to_json(value):\n    # DynamoDB returns numbers as Decimal.\n    if isinstance(value, Decimal):\n        return int(value) if value % 1 == 0 else float(value)\n    raise TypeError(f\"{type(value).__name__} is not JSON\")\n"
+      }
+    },
+    {
+      "id": "fn-create-item",
+      "type": "lambda",
+      "label": "Lambda Function",
+      "position": {
+        "x": 340,
+        "y": 220
+      },
+      "config": {
+        "runtime": "python3.13",
+        "architecture": "arm64",
+        "handler": "app.handler",
+        "memory": 256,
+        "timeout": 10,
+        "source": "inline",
+        "name": "create-item",
+        "code": "\"\"\"POST /items: creates an item from a JSON object with at least a name.\n\n  {\"name\": \"Coffee beans\", \"price\": 12.5, \"tags\": [\"food\"]}\n\nAnswers 201 with the item, which gets an id and timestamps.\n\"\"\"\nimport base64\nimport json\nimport logging\nimport os\nimport uuid\nfrom datetime import datetime, timezone\nfrom decimal import Decimal\n\nimport boto3\n\nlogger = logging.getLogger()\nlogger.setLevel(logging.INFO)\n\ntable = boto3.resource(\"dynamodb\").Table(os.environ[\"ITEMS_TABLE\"])\n\nRESERVED = {\"id\", \"createdAt\", \"updatedAt\"}\n\n\ndef handler(event, context):\n    body, problem = read_json(event)\n    if problem:\n        return error(400, \"invalid_body\", problem)\n    name = body.get(\"name\")\n    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 200:\n        return error(400, \"invalid_name\", \"name must be text of 1 to 200 characters\")\n    if RESERVED & body.keys():\n        return error(400, \"reserved_field\", \"id, createdAt and updatedAt are set by the API\")\n\n    now = datetime.now(timezone.utc).isoformat()\n    item = {**body, \"name\": name.strip(), \"id\": str(uuid.uuid4()), \"createdAt\": now, \"updatedAt\": now}\n    table.put_item(Item=item, ConditionExpression=\"attribute_not_exists(id)\")\n\n    logger.info(json.dumps({\"route\": \"POST /items\", \"id\": item[\"id\"], \"requestId\": context.aws_request_id}))\n    response = respond(201, item)\n    response[\"headers\"][\"Location\"] = f\"/items/{item['id']}\"\n    return response\n\n\ndef read_json(event):\n    raw = event.get(\"body\") or \"\"\n    if event.get(\"isBase64Encoded\"):\n        raw = base64.b64decode(raw).decode(\"utf-8\")\n    try:\n        # DynamoDB stores numbers as Decimal, not float.\n        body = json.loads(raw or \"{}\", parse_float=Decimal)\n    except ValueError:\n        return None, \"the body is not valid JSON\"\n    if not isinstance(body, dict):\n        return None, \"send a JSON object\"\n    return body, None\n\n\ndef respond(status, body):\n    return {\n        \"statusCode\": status,\n        \"headers\": {\"Content-Type\": \"application/json\"},\n        \"body\": json.dumps(body, default=to_json),\n    }\n\n\ndef error(status, code, message):\n    return respond(status, {\"error\": {\"code\": code, \"message\": message}})\n\n\ndef to_json(value):\n    if isinstance(value, Decimal):\n        return int(value) if value % 1 == 0 else float(value)\n    raise TypeError(f\"{type(value).__name__} is not JSON\")\n"
+      }
+    },
+    {
+      "id": "fn-update-item",
+      "type": "lambda",
+      "label": "Lambda Function",
+      "position": {
+        "x": 340,
+        "y": 330
+      },
+      "config": {
+        "runtime": "python3.13",
+        "architecture": "arm64",
+        "handler": "app.handler",
+        "memory": 256,
+        "timeout": 10,
+        "source": "inline",
+        "name": "update-item",
+        "code": "\"\"\"PATCH /items/{id}: changes the fields sent, keeps the rest.\n\n  {\"price\": 14, \"tags\": [\"food\", \"sale\"]}\n\nAnswers 200 with the whole item, or 404 if it does not exist.\n\"\"\"\nimport base64\nimport json\nimport logging\nimport os\nfrom datetime import datetime, timezone\nfrom decimal import Decimal\n\nimport boto3\n\nlogger = logging.getLogger()\nlogger.setLevel(logging.INFO)\n\ntable = boto3.resource(\"dynamodb\").Table(os.environ[\"ITEMS_TABLE\"])\n\nRESERVED = {\"id\", \"createdAt\", \"updatedAt\"}\n\n\ndef handler(event, context):\n    item_id = (event.get(\"pathParameters\") or {}).get(\"id\", \"\")\n    body, problem = read_json(event)\n    if problem:\n        return error(400, \"invalid_body\", problem)\n    if not body:\n        return error(400, \"nothing_to_change\", \"send at least one field\")\n    if RESERVED & body.keys():\n        return error(400, \"reserved_field\", \"id, createdAt and updatedAt are set by the API\")\n    if \"name\" in body and (not isinstance(body[\"name\"], str) or not 1 <= len(body[\"name\"].strip()) <= 200):\n        return error(400, \"invalid_name\", \"name must be text of 1 to 200 characters\")\n\n    body[\"updatedAt\"] = datetime.now(timezone.utc).isoformat()\n    # Placeholders keep field names that are DynamoDB reserved words working.\n    names = {f\"#f{i}\": key for i, key in enumerate(body)}\n    values = {f\":v{i}\": value for i, value in enumerate(body.values())}\n    sets = \", \".join(f\"#f{i} = :v{i}\" for i in range(len(body)))\n    try:\n        result = table.update_item(\n            Key={\"id\": item_id},\n            UpdateExpression=f\"SET {sets}\",\n            ConditionExpression=\"attribute_exists(id)\",\n            ExpressionAttributeNames=names,\n            ExpressionAttributeValues=values,\n            ReturnValues=\"ALL_NEW\",\n        )\n    except table.meta.client.exceptions.ConditionalCheckFailedException:\n        return error(404, \"not_found\", f\"there is no item {item_id}\")\n\n    logger.info(json.dumps({\"route\": \"PATCH /items/{id}\", \"id\": item_id, \"fields\": sorted(body), \"requestId\": context.aws_request_id}))\n    return respond(200, result[\"Attributes\"])\n\n\ndef read_json(event):\n    raw = event.get(\"body\") or \"\"\n    if event.get(\"isBase64Encoded\"):\n        raw = base64.b64decode(raw).decode(\"utf-8\")\n    try:\n        body = json.loads(raw or \"{}\", parse_float=Decimal)\n    except ValueError:\n        return None, \"the body is not valid JSON\"\n    if not isinstance(body, dict):\n        return None, \"send a JSON object\"\n    return body, None\n\n\ndef respond(status, body):\n    return {\n        \"statusCode\": status,\n        \"headers\": {\"Content-Type\": \"application/json\"},\n        \"body\": json.dumps(body, default=to_json),\n    }\n\n\ndef error(status, code, message):\n    return respond(status, {\"error\": {\"code\": code, \"message\": message}})\n\n\ndef to_json(value):\n    if isinstance(value, Decimal):\n        return int(value) if value % 1 == 0 else float(value)\n    raise TypeError(f\"{type(value).__name__} is not JSON\")\n"
+      }
+    },
+    {
+      "id": "fn-delete-item",
+      "type": "lambda",
+      "label": "Lambda Function",
+      "position": {
+        "x": 340,
+        "y": 440
+      },
+      "config": {
+        "runtime": "python3.13",
+        "architecture": "arm64",
+        "handler": "app.handler",
+        "memory": 256,
+        "timeout": 10,
+        "source": "inline",
+        "name": "delete-item",
+        "code": "\"\"\"DELETE /items/{id}: removes the item. Answers 204, or 404 if it does not exist.\"\"\"\nimport json\nimport logging\nimport os\n\nimport boto3\n\nlogger = logging.getLogger()\nlogger.setLevel(logging.INFO)\n\ntable = boto3.resource(\"dynamodb\").Table(os.environ[\"ITEMS_TABLE\"])\n\n\ndef handler(event, context):\n    item_id = (event.get(\"pathParameters\") or {}).get(\"id\", \"\")\n    try:\n        table.delete_item(Key={\"id\": item_id}, ConditionExpression=\"attribute_exists(id)\")\n    except table.meta.client.exceptions.ConditionalCheckFailedException:\n        return {\n            \"statusCode\": 404,\n            \"headers\": {\"Content-Type\": \"application/json\"},\n            \"body\": json.dumps({\"error\": {\"code\": \"not_found\", \"message\": f\"there is no item {item_id}\"}}),\n        }\n    logger.info(json.dumps({\"route\": \"DELETE /items/{id}\", \"id\": item_id, \"requestId\": context.aws_request_id}))\n    return {\"statusCode\": 204}\n"
+      }
+    },
+    {
+      "id": "table",
       "type": "dynamodb",
       "label": "DynamoDB Table",
       "position": {
-        "x": 600,
-        "y": 0
+        "x": 680,
+        "y": 220
       },
       "config": {
         "name": "items",
         "billingMode": "PAY_PER_REQUEST",
         "partitionKey": "id",
         "partitionKeyType": "S",
-        "pointInTimeRecovery": false
+        "indexes": [
+          {
+            "name": "by-status",
+            "partitionKey": "status",
+            "partitionKeyType": "S",
+            "sortKey": "createdAt",
+            "sortKeyType": "S",
+            "projection": "ALL"
+          },
+          {
+            "name": "by-owner",
+            "partitionKey": "owner",
+            "sortKey": "",
+            "projection": "KEYS_ONLY"
+          }
+        ]
       }
     }
   ],
   "edges": [
     {
-      "id": "e1",
-      "sourceId": "api-gateway-1",
-      "targetId": "lambda-2",
+      "id": "e-api-list-items",
+      "sourceId": "api",
+      "targetId": "fn-list-items",
       "config": {
         "routes": [
           {
             "method": "GET",
             "path": "/items"
-          },
+          }
+        ]
+      }
+    },
+    {
+      "id": "e-api-get-item",
+      "sourceId": "api",
+      "targetId": "fn-get-item",
+      "config": {
+        "routes": [
+          {
+            "method": "GET",
+            "path": "/items/{id}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "e-api-create-item",
+      "sourceId": "api",
+      "targetId": "fn-create-item",
+      "config": {
+        "routes": [
           {
             "method": "POST",
             "path": "/items"
@@ -72,11 +185,69 @@
       }
     },
     {
-      "id": "e3",
-      "sourceId": "lambda-2",
-      "targetId": "dynamodb-3",
+      "id": "e-api-update-item",
+      "sourceId": "api",
+      "targetId": "fn-update-item",
+      "config": {
+        "routes": [
+          {
+            "method": "PATCH",
+            "path": "/items/{id}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "e-api-delete-item",
+      "sourceId": "api",
+      "targetId": "fn-delete-item",
+      "config": {
+        "routes": [
+          {
+            "method": "DELETE",
+            "path": "/items/{id}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "e-list-items-table",
+      "sourceId": "fn-list-items",
+      "targetId": "table",
+      "config": {
+        "access": "read"
+      }
+    },
+    {
+      "id": "e-get-item-table",
+      "sourceId": "fn-get-item",
+      "targetId": "table",
+      "config": {
+        "access": "read"
+      }
+    },
+    {
+      "id": "e-create-item-table",
+      "sourceId": "fn-create-item",
+      "targetId": "table",
+      "config": {
+        "access": "write"
+      }
+    },
+    {
+      "id": "e-update-item-table",
+      "sourceId": "fn-update-item",
+      "targetId": "table",
       "config": {
         "access": "readwrite"
+      }
+    },
+    {
+      "id": "e-delete-item-table",
+      "sourceId": "fn-delete-item",
+      "targetId": "table",
+      "config": {
+        "access": "write"
       }
     }
   ]

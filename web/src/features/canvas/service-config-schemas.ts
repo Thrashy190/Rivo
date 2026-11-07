@@ -33,10 +33,10 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
       type: "select",
       label: "Runtime",
       options: [
-        "nodejs22.x",
-        "nodejs24.x",
         "python3.13",
         "python3.12",
+        "nodejs22.x",
+        "nodejs24.x",
         "ruby3.4",
         "java21",
         "provided.al2023",
@@ -65,7 +65,7 @@ export const SERVICE_SCHEMAS: Record<string, ServiceSchema> = {
     handler: {
       type: "text",
       label: "Handler",
-      placeholder: "index.handler",
+      placeholder: "app.handler",
     },
     ephemeralStorage: {
       type: "number",

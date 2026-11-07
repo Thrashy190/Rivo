@@ -73,7 +73,7 @@ const SERVICE_LABELS: Record<string, string> = {
 const CONTAINER_TYPES = new Set(["region", "vpc", "subnet"]);
 
 const DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
-  lambda: { runtime: "nodejs22.x", memory: 128, timeout: 30, handler: "index.handler", architecture: "arm64" },
+  lambda: { runtime: "python3.13", memory: 128, timeout: 30, handler: "app.handler", architecture: "arm64" },
   "api-gateway": { apiType: "HTTP", stage: "$default", authorizationType: "NONE", cors: true },
   dynamodb: { billingMode: "PAY_PER_REQUEST", partitionKey: "id", partitionKeyType: "S" },
   region: { provider: "aws", region: "us-east-1" },

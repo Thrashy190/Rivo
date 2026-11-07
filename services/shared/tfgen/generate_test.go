@@ -80,21 +80,74 @@ func TestServerlessAPI(t *testing.T) {
 	mustContain(t, tf,
 		`resource "aws_apigatewayv2_api" "items_api"`,
 		`route_key = "GET /items"`,
+		`route_key = "GET /items/{id}"`,
 		`route_key = "POST /items"`,
-		`resource "aws_apigatewayv2_integration" "items_api_items"`,
-		`resource "aws_lambda_permission" "items_api_items"`,
-		`ITEMS_TABLE = aws_dynamodb_table.items_2.name`,
-		`"dynamodb:PutItem"`,
-		`resource "aws_dynamodb_table" "items_2"`,
+		`route_key = "PATCH /items/{id}"`,
+		`route_key = "DELETE /items/{id}"`,
+		`resource "aws_apigatewayv2_integration" "items_api_list_items"`,
+		`resource "aws_lambda_permission" "items_api_delete_item"`,
+		`ITEMS_TABLE = aws_dynamodb_table.items.name`,
+		`runtime          = "python3.13"`,
+		`handler          = "app.handler"`,
 		`architectures    = ["arm64"]`,
 		`allow_origins = ["*"]`,
 	)
-	// One integration and one permission for both routes.
-	if n := strings.Count(tf, `resource "aws_apigatewayv2_integration"`); n != 1 {
-		t.Errorf("want 1 integration, got %d", n)
+	// One function per route, each with its own integration.
+	if n := strings.Count(tf, `resource "aws_apigatewayv2_integration"`); n != 5 {
+		t.Errorf("want 5 integrations, got %d", n)
 	}
-	if !strings.Contains(content(res, "functions/items/index.js"), "ITEMS_TABLE") {
+	if !strings.Contains(content(res, "functions/create_item/app.py"), "ITEMS_TABLE") {
 		t.Error("the function's code was not written")
+	}
+	// Functions that only read cannot write.
+	lambda := content(res, "lambda.tf")
+	reader := lambda[strings.Index(lambda, `data "aws_iam_policy_document" "list_items"`):]
+	reader = reader[:strings.Index(reader, "\n}\n")]
+	if strings.Contains(reader, "PutItem") || !strings.Contains(reader, "dynamodb:Scan") {
+		t.Errorf("list-items policy:\n%s", reader)
+	}
+	if len(res.Warnings) != 0 {
+		t.Errorf("warnings: %+v", res.Warnings)
+	}
+}
+
+func TestTableIndexes(t *testing.T) {
+	res := generateFile(t, "serverless-api.json")
+	table := content(res, "dynamodb.tf")
+	mustContain(t, table,
+		`name            = "by-status"`,
+		`projection_type = "ALL"`,
+		`projection_type = "KEYS_ONLY"`,
+		`attribute_name = "status"`,
+		`key_type       = "RANGE"`,
+	)
+	// Each attribute a key uses is declared once.
+	for _, name := range []string{"id", "status", "createdAt", "owner"} {
+		if n := strings.Count(table, ` name = "`+name+`"`); n != 1 {
+			t.Errorf("attribute %s declared %d times:\n%s", name, n, table)
+		}
+	}
+
+	d := &Diagram{Nodes: []Node{{ID: "t", Type: "dynamodb", Config: map[string]any{
+		"name": "orders", "partitionKey": "id", "partitionKeyType": "S",
+		"indexes": []any{
+			map[string]any{"name": "by-id-number", "partitionKey": "id", "partitionKeyType": "N"},
+			map[string]any{"name": "x", "partitionKey": "a"},
+			map[string]any{"name": "no-key"},
+			map[string]any{"name": "by-day", "partitionKey": "day", "sortKey": "id", "sortKeyType": "N"},
+		},
+	}}}}
+	res, err := Generate(d, Options{ProjectName: "p", Region: "us-east-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table = content(res, "dynamodb.tf")
+	// The last index conflicts on its sort key, so "day" must not be declared.
+	if strings.Contains(table, "global_secondary_index") || strings.Contains(table, `"day"`) {
+		t.Errorf("invalid indexes were generated:\n%s", table)
+	}
+	if len(res.Warnings) != 4 {
+		t.Errorf("want 4 warnings, got %+v", res.Warnings)
 	}
 }
 
@@ -112,7 +165,7 @@ func TestEventDriven(t *testing.T) {
 		`"events:PutEvents"`,
 	)
 	// The publisher has no code, so it gets a placeholder and a warning.
-	if content(res, "functions/publisher/index.js") == "" {
+	if content(res, "functions/publisher/app.py") == "" {
 		t.Error("the placeholder was not written")
 	}
 	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0].Message, "publisher has no code") {
@@ -137,7 +190,7 @@ func TestDiagramTextCannotInjectHCL(t *testing.T) {
 	if strings.Contains(tf, `"null_resource"`) || strings.Contains(tf, `provisioner "local-exec"`) {
 		t.Fatalf("diagram text became HCL:\n%s", tf)
 	}
-	mustContain(t, tf, `GOOD = "$${file(\"/etc/passwd\")}"`, `handler          = "index.handler"`)
+	mustContain(t, tf, `GOOD = "$${file(\"/etc/passwd\")}"`, `handler          = "app.handler"`)
 }
 
 func TestUnsupportedServicesAreWarned(t *testing.T) {

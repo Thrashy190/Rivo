@@ -7,6 +7,7 @@
 
 import { GENERATED_TYPES } from "./aws-services";
 import { lambdaSource } from "./lambdaSource";
+import { indexProblems } from "./tableIndexes";
 import type { CanvasEdge, CanvasNode } from "./useCanvas";
 
 export interface Issue {
@@ -43,7 +44,7 @@ export function nodeIssues(node: CanvasNode, nodes: CanvasNode[], edges: CanvasE
   switch (node.type) {
     case "lambda": {
       const source = lambdaSource(node);
-      const runtime = String(node.config.runtime ?? "nodejs22.x");
+      const runtime = String(node.config.runtime ?? "python3.13");
       if (COMPILED.test(runtime) && source.kind !== "package") {
         issues.push({ level: "todo", message: `${runtime} needs a compiled .zip. Upload one in the Code tab.` });
       } else if (source.kind === "none") {
@@ -56,6 +57,13 @@ export function nodeIssues(node: CanvasNode, nodes: CanvasNode[], edges: CanvasE
         issues.push({ level: "todo", message: "No routes yet. Connect it to a Lambda function." });
       }
       break;
+    case "dynamodb": {
+      const left = indexProblems(node).filter(Boolean).length;
+      if (left > 0) {
+        issues.push({ level: "todo", message: `${left === 1 ? "An index needs" : `${left} indexes need`} fixing before it is generated.` });
+      }
+      break;
+    }
     case "cloudfront":
       if (!near.some((n) => n.node.type === "s3")) {
         issues.push({ level: "skipped", message: "No origin. Connect it to an S3 bucket to serve its files." });

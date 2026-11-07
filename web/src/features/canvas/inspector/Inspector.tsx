@@ -15,6 +15,7 @@ import { SERVICE_SCHEMAS } from "../service-config-schemas";
 import type { CanvasEdge, CanvasNode, EdgeConfig, Route } from "../useCanvas";
 import { ConfigFieldInput } from "./fields";
 import { LambdaCode } from "./LambdaCode";
+import { TableIndexes } from "./TableIndexes";
 import { inputClass, sectionTitle } from "./styles";
 
 function Shell({ children, onClose, header }: { children: ReactNode; header: ReactNode; onClose: () => void }) {
@@ -145,6 +146,8 @@ export function NodeInspector({ node, nodes, edges, readOnly = false, onClose, o
           </div>
         )}
       </section>
+
+      {node.type === "dynamodb" && <TableIndexes node={node} readOnly={readOnly} onUpdate={(config) => onUpdate(node.id, config)} />}
 
       {node.variant !== "container" && (
         <section className="px-4 py-4 border-b border-edge">

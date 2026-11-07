@@ -356,22 +356,22 @@ func (g *gen) lambda(n *Node) {
 	l := g.local[n.ID]
 	f := g.file("lambda.tf")
 
-	runtime := n.str("runtime", "nodejs22.x")
+	runtime := n.str("runtime", "python3.13")
 	if next, ok := retired[runtime]; ok {
 		g.warn(n.ID, "", fmt.Sprintf("%s: AWS retired %s, so the function uses %s.", n.name(), runtime, next))
 		runtime = next
 	} else if runtimes[runtime] == "" {
-		g.warn(n.ID, "", fmt.Sprintf("%s: %q is not a Lambda runtime Rivo knows; the function uses nodejs22.x.", n.name(), runtime))
-		runtime = "nodejs22.x"
+		g.warn(n.ID, "", fmt.Sprintf("%s: %q is not a Lambda runtime Rivo knows; the function uses python3.13.", n.name(), runtime))
+		runtime = "python3.13"
 	}
 	family := runtimes[runtime]
 
-	handler := n.str("handler", "index.handler")
+	handler := n.str("handler", "app.handler")
 	if family == "provided" {
 		handler = "bootstrap"
 	} else if !handlerRule.MatchString(handler) || strings.Contains(handler, "..") {
-		g.warn(n.ID, "", fmt.Sprintf("%s: the handler %q is not valid; it uses index.handler.", n.name(), handler))
-		handler = "index.handler"
+		g.warn(n.ID, "", fmt.Sprintf("%s: the handler %q is not valid; it uses app.handler.", n.name(), handler))
+		handler = "app.handler"
 	}
 
 	// The code: written in the diagram, uploaded as a .zip, or a placeholder.
@@ -589,14 +589,35 @@ func (g *gen) table(n *Node) {
 	f := g.file("dynamodb.tf")
 
 	attrType := func(key string) string {
-		t := n.str(key, "S")
-		return oneOf(strings.ToUpper(t[:1]), "S", "N", "B")
+		return keyType(n.str(key, "S"))
 	}
 	pk := n.str("partitionKey", "id")
 	sk := n.str("sortKey", "")
 	if strings.Contains(sk, "(optional)") {
 		sk = ""
 	}
+	// Every attribute a key uses is declared once, with the type it was
+	// first given.
+	attrs := []string{pk}
+	types := map[string]string{pk: attrType("partitionKeyType")}
+	// fits reports whether a key can use the attribute; declare adds it.
+	fits := func(name, t, index string) bool {
+		if have, ok := types[name]; ok && have != t {
+			g.warn(n.ID, "", fmt.Sprintf("%s: the index %s uses %s as %s, but the table already uses it as %s, so the index was left out.", n.name(), index, name, t, have))
+			return false
+		}
+		return true
+	}
+	declare := func(name, t string) {
+		if _, ok := types[name]; !ok {
+			types[name] = t
+			attrs = append(attrs, name)
+		}
+	}
+	if sk != "" {
+		declare(sk, attrType("sortKeyType"))
+	}
+	indexes := g.indexes(n, fits, declare)
 
 	t := f.add(newBlock("resource", "aws_dynamodb_table", l))
 	t.attr("name", resourceName(n))
@@ -618,13 +639,27 @@ func (g *gen) table(n *Node) {
 		t.attr("deletion_protection_enabled", boolean(true))
 	}
 
-	a := t.blank().child("attribute")
-	a.attr("name", str(pk))
-	a.attr("type", str(attrType("partitionKeyType")))
-	if sk != "" {
+	for _, name := range attrs {
 		a := t.blank().child("attribute")
-		a.attr("name", str(sk))
-		a.attr("type", str(attrType("sortKeyType")))
+		a.attr("name", str(name))
+		a.attr("type", str(types[name]))
+	}
+	for _, ix := range indexes {
+		gsi := t.blank().child("global_secondary_index")
+		gsi.attr("name", str(ix.name))
+		gsi.attr("projection_type", str(ix.projection))
+		if billing == "PROVISIONED" {
+			gsi.attr("read_capacity", num(n.int("readCapacity", 5, 1, 40000)))
+			gsi.attr("write_capacity", num(n.int("writeCapacity", 5, 1, 40000)))
+		}
+		hash := gsi.blank().child("key_schema")
+		hash.attr("attribute_name", str(ix.pk))
+		hash.attr("key_type", str("HASH"))
+		if ix.sk != "" {
+			rng := gsi.blank().child("key_schema")
+			rng.attr("attribute_name", str(ix.sk))
+			rng.attr("key_type", str("RANGE"))
+		}
 	}
 	if n.bool("pointInTimeRecovery", false) {
 		t.blank().child("point_in_time_recovery").attr("enabled", boolean(true))
@@ -639,6 +674,65 @@ func (g *gen) table(n *Node) {
 	}
 
 	g.output(l+"_table_name", "Name of the "+n.name()+" table", raw("aws_dynamodb_table."+l+".name"))
+}
+
+type index struct {
+	name, pk, sk, projection string
+}
+
+var indexName = regexp.MustCompile(`^[A-Za-z0-9_.-]{3,255}$`)
+
+// keyType reads S, N or B, also from labels such as "N — Number".
+func keyType(t string) string {
+	t = strings.TrimSpace(t)
+	if t == "" {
+		return "S"
+	}
+	return oneOf(strings.ToUpper(t[:1]), "S", "N", "B")
+}
+
+// indexes reads a table's global secondary indexes. fits checks that a key's
+// type agrees with the table, and declare registers the attribute.
+func (g *gen) indexes(n *Node, fits func(name, t, index string) bool, declare func(name, t string)) []index {
+	list, _ := n.Config["indexes"].([]any)
+	var out []index
+	seen := map[string]bool{}
+	for _, item := range list {
+		m, _ := item.(map[string]any)
+		get := func(k string) string {
+			v, _ := m[k].(string)
+			return strings.TrimSpace(v)
+		}
+		ix := index{name: get("name"), pk: get("partitionKey"), sk: get("sortKey"), projection: oneOf(get("projection"), "ALL", "KEYS_ONLY")}
+		switch {
+		case !indexName.MatchString(ix.name):
+			g.warn(n.ID, "", fmt.Sprintf("%s: the index name %q is not valid (3 to 255 letters, digits, '_', '-' or '.'), so it was left out.", n.name(), ix.name))
+			continue
+		case seen[ix.name]:
+			g.warn(n.ID, "", fmt.Sprintf("%s already has an index called %s, so the second one was left out.", n.name(), ix.name))
+			continue
+		case ix.pk == "":
+			g.warn(n.ID, "", fmt.Sprintf("%s: the index %s has no partition key, so it was left out.", n.name(), ix.name))
+			continue
+		case len(out) == 20:
+			g.warn(n.ID, "", fmt.Sprintf("%s: a table takes up to 20 global secondary indexes, so %s was left out.", n.name(), ix.name))
+			continue
+		}
+		pkType, skType := keyType(get("partitionKeyType")), keyType(get("sortKeyType"))
+		if ix.sk == ix.pk {
+			ix.sk = ""
+		}
+		if !fits(ix.pk, pkType, ix.name) || (ix.sk != "" && !fits(ix.sk, skType, ix.name)) {
+			continue
+		}
+		declare(ix.pk, pkType)
+		if ix.sk != "" {
+			declare(ix.sk, skType)
+		}
+		seen[ix.name] = true
+		out = append(out, ix)
+	}
+	return out
 }
 
 // ── S3 ───────────────────────────────────────────────────────────────────────
@@ -895,7 +989,7 @@ func (g *gen) result() *Result {
 	tf := providers.add(newBlock("terraform"))
 	tf.attr("required_version", str(">= 1.6"))
 	req := tf.blank().child("required_providers")
-	req.attr("aws", object(map[string]expr{"source": str("hashicorp/aws"), "version": str("~> 6.0")}))
+	req.attr("aws", object(map[string]expr{"source": str("hashicorp/aws"), "version": str("~> 6.40")}))
 	if g.archive {
 		req.attr("archive", object(map[string]expr{"source": str("hashicorp/archive"), "version": str("~> 2.7")}))
 	}
