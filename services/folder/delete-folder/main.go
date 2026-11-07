@@ -14,6 +14,7 @@ import (
 	"github.com/Thrashy190/Rivo/services/shared/authz"
 	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
 	"github.com/Thrashy190/Rivo/services/shared/models/folder"
+	"github.com/Thrashy190/Rivo/services/shared/models/project"
 	"github.com/Thrashy190/Rivo/services/shared/models/workspace"
 	"github.com/Thrashy190/Rivo/services/shared/repository"
 	"github.com/Thrashy190/Rivo/services/shared/transport/apigateway"
@@ -24,10 +25,15 @@ type FolderStore interface {
 	Delete(ctx context.Context, workspaceID, id string) error
 }
 
+type ProjectLister interface {
+	List(ctx context.Context, workspaceID string) ([]project.Project, error)
+}
+
 var (
-	users   authz.UserLoader
-	members authz.MembershipLoader
-	folders FolderStore
+	users    authz.UserLoader
+	members  authz.MembershipLoader
+	folders  FolderStore
+	projects ProjectLister
 )
 
 func init() {
@@ -39,6 +45,7 @@ func init() {
 	users = repository.NewDynamoDBUserRepository(client, os.Getenv("USERS_TABLE_NAME"))
 	members = repository.NewDynamoDBMembershipRepository(client, os.Getenv("MEMBERS_TABLE_NAME"))
 	folders = repository.NewDynamoDBFolderRepository(client, os.Getenv("FOLDERS_TABLE_NAME"))
+	projects = repository.NewDynamoDBProjectRepository(client, os.Getenv("PROJECTS_TABLE_NAME"))
 }
 
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -54,6 +61,16 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	}
 	for _, f := range list {
 		if f.ParentID == id {
+			return apigateway.Error(apierrors.Conflict("the folder is not empty")), nil
+		}
+	}
+
+	inside, err := projects.List(ctx, m.WorkspaceID)
+	if err != nil {
+		return apigateway.Error(err), nil
+	}
+	for _, p := range inside {
+		if p.FolderID == id {
 			return apigateway.Error(apierrors.Conflict("the folder is not empty")), nil
 		}
 	}

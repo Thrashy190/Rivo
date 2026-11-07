@@ -12,24 +12,20 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/Thrashy190/Rivo/services/shared/authz"
-	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
 	"github.com/Thrashy190/Rivo/services/shared/models/project"
-	"github.com/Thrashy190/Rivo/services/shared/models/user"
+	"github.com/Thrashy190/Rivo/services/shared/models/workspace"
 	"github.com/Thrashy190/Rivo/services/shared/repository"
 	"github.com/Thrashy190/Rivo/services/shared/transport/apigateway"
 )
 
 type ProjectGetter interface {
-	GetByID(ctx context.Context, id string) (*project.Project, error)
-}
-
-type UserLoader interface {
-	GetByID(ctx context.Context, id string) (*user.User, error)
+	GetByID(ctx context.Context, workspaceID, id string) (*project.Project, error)
 }
 
 var (
-	repo  ProjectGetter
-	users UserLoader
+	users    authz.UserLoader
+	members  authz.MembershipLoader
+	projects ProjectGetter
 )
 
 func init() {
@@ -38,21 +34,18 @@ func init() {
 		panic(fmt.Sprintf("loading AWS config: %v", err))
 	}
 	client := dynamodb.NewFromConfig(cfg)
-	repo = repository.NewDynamoDBProjectRepository(client, os.Getenv("TABLE_NAME"))
 	users = repository.NewDynamoDBUserRepository(client, os.Getenv("USERS_TABLE_NAME"))
+	members = repository.NewDynamoDBMembershipRepository(client, os.Getenv("MEMBERS_TABLE_NAME"))
+	projects = repository.NewDynamoDBProjectRepository(client, os.Getenv("PROJECTS_TABLE_NAME"))
 }
 
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	if _, err := authz.Require(ctx, users, req, user.PermProjectsRead); err != nil {
+	_, m, err := authz.RequireWorkspace(ctx, users, members, req, workspace.PermProjectsRead)
+	if err != nil {
 		return apigateway.Error(err), nil
 	}
 
-	id := req.PathParameters["id"]
-	if id == "" {
-		return apigateway.Error(apierrors.Validation("id is required")), nil
-	}
-
-	p, err := repo.GetByID(ctx, id)
+	p, err := projects.GetByID(ctx, m.WorkspaceID, req.PathParameters["projectId"])
 	if err != nil {
 		return apigateway.Error(err), nil
 	}

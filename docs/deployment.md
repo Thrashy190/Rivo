@@ -91,4 +91,4 @@ For production, use the `prod-*` targets and `environments/prod.tfvars`.
 
 ## Remove everything
 
-`make destroy ENV=dev` in `infra/api` deletes the API and its tables, including all their data. In `infra/web`, use `make dev-destroy`.
+`make destroy ENV=dev` in `infra/api` deletes the API and its tables, including all their data. Terraform will not delete a bucket that has objects in it, so empty the diagrams bucket first, including old versions. In `infra/web`, use `make dev-destroy`.

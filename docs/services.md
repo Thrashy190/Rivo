@@ -21,6 +21,7 @@ find . -name go.mod -exec dirname {} \; | xargs go work use
 | `errors/` | `ApiError`, its constructors and Cognito error mapping. Knows nothing about API Gateway |
 | `transport/apigateway/` | Turns results and `ApiError`s into API Gateway responses |
 | `repository/` | DynamoDB access |
+| `storage/` | Diagrams in S3 |
 | `directory/` | Finds or invites people in Cognito |
 
 Interfaces are declared in each Lambda and list only the methods it uses, so a test can pass a small fake.
@@ -49,6 +50,6 @@ The architecture in `aws_lambda_function` must match `GOARCH`.
    go mod tidy
    ```
 
-3. Register it in Terraform with only the IAM actions it needs, and add its route. See `infra/api/workspaces.tf`.
+3. Register it in Terraform with only the IAM actions it needs, and add its route. See `infra/api/projects.tf`.
 4. Add a test that covers its permissions, including someone from another workspace.
 5. Run `make check` from the repository root.

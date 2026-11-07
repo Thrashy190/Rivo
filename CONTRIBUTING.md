@@ -13,12 +13,13 @@ make check      # everything CI runs
 
 You need Node.js 22+, Go 1.27+ and Terraform (tested with 1.14). You do not need an AWS account.
 
-The repository tests also run against DynamoDB Local when you ask for it. Without it, they skip themselves:
+The storage tests also run against local copies of DynamoDB and S3 when you ask for them. Without them, they skip themselves:
 
 ```bash
 docker run -d --rm --name rivo-dynamodb -p 8000:8000 amazon/dynamodb-local
-RIVO_DYNAMODB_ENDPOINT=http://localhost:8000 make test
-docker stop rivo-dynamodb
+docker run -d --rm --name rivo-s3 -p 9090:9090 adobe/s3mock
+RIVO_DYNAMODB_ENDPOINT=http://localhost:8000 RIVO_S3_ENDPOINT=http://localhost:9090 make test
+docker stop rivo-dynamodb rivo-s3
 ```
 
 ## Guidelines

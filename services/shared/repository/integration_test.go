@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -174,31 +175,102 @@ func TestFoldersStayInsideTheirWorkspace(t *testing.T) {
 	}
 }
 
-// Real case: the first version of List read a single Scan page, so projects past
-// 1 MB silently disappeared from the list.
-func TestListReadsEveryPage(t *testing.T) {
+// Real case: the first version of List read a single page, so projects past 1 MB
+// silently disappeared from the list.
+func TestProjectsListEveryPageAndStayInTheirWorkspace(t *testing.T) {
 	ctx := context.Background()
 	client := localClient(t)
-	projects := NewDynamoDBProjectRepository(client, workspacesTable(t, client))
+	projects := NewDynamoDBProjectRepository(client, createTable(t, client, &dynamodb.CreateTableInput{
+		AttributeDefinitions: []types.AttributeDefinition{attr("workspace_id"), attr("id")},
+		KeySchema:            []types.KeySchemaElement{key("workspace_id", types.KeyTypeHash), key("id", types.KeyTypeRange)},
+	}))
 
-	padding := make([]byte, 100*1024)
-	for i := range padding {
-		padding[i] = 'x'
-	}
+	padding := strings.Repeat("x", 100*1024)
 	const total = 30
 	for i := 0; i < total; i++ {
-		p := &project.Project{ID: fmt.Sprintf("p%02d", i), Name: "Demo", Description: string(padding)}
+		p := &project.Project{WorkspaceID: "acme", ID: fmt.Sprintf("p%02d", i), Name: "Demo", Description: padding}
 		if err := projects.Create(ctx, p); err != nil {
 			t.Fatal(err)
 		}
 	}
+	if err := projects.Create(ctx, &project.Project{WorkspaceID: "globex", ID: "theirs", Name: "Rival"}); err != nil {
+		t.Fatal(err)
+	}
 
-	list, err := projects.List(ctx)
+	list, err := projects.List(ctx, "acme")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(list) != total {
 		t.Fatalf("got %d of %d projects", len(list), total)
+	}
+
+	if _, err := projects.GetByID(ctx, "acme", "theirs"); !isCode(err, apierrors.CodeNotFound) {
+		t.Fatalf("another workspace's project must be not found: %v", err)
+	}
+	name := "Hacked"
+	if _, err := projects.Update(ctx, "acme", "theirs", project.UpdateProjectInput{Name: &name}); !isCode(err, apierrors.CodeNotFound) {
+		t.Fatalf("updating another workspace's project must be not found: %v", err)
+	}
+	if err := projects.Delete(ctx, "acme", "theirs"); !isCode(err, apierrors.CodeNotFound) {
+		t.Fatalf("deleting another workspace's project must be not found: %v", err)
+	}
+}
+
+func TestProjectUpdatesAndVersionNumbers(t *testing.T) {
+	ctx := context.Background()
+	client := localClient(t)
+	projects := NewDynamoDBProjectRepository(client, createTable(t, client, &dynamodb.CreateTableInput{
+		AttributeDefinitions: []types.AttributeDefinition{attr("workspace_id"), attr("id")},
+		KeySchema:            []types.KeySchemaElement{key("workspace_id", types.KeyTypeHash), key("id", types.KeyTypeRange)},
+	}))
+	versions := NewDynamoDBVersionRepository(client, createTable(t, client, &dynamodb.CreateTableInput{
+		AttributeDefinitions: []types.AttributeDefinition{
+			attr("project_id"),
+			{AttributeName: aws.String("number"), AttributeType: types.ScalarAttributeTypeN},
+		},
+		KeySchema: []types.KeySchemaElement{key("project_id", types.KeyTypeHash), key("number", types.KeyTypeRange)},
+	}))
+
+	if err := projects.Create(ctx, &project.Project{WorkspaceID: "acme", ID: "p", Name: "Demo", FolderID: "f"}); err != nil {
+		t.Fatal(err)
+	}
+
+	empty := ""
+	name := "Renamed"
+	updated, err := projects.Update(ctx, "acme", "p", project.UpdateProjectInput{Name: &name, FolderID: &empty})
+	if err != nil || updated.Name != "Renamed" || updated.FolderID != "" {
+		t.Fatalf("update: %+v, %v", updated, err)
+	}
+	if _, err := projects.Update(ctx, "acme", "p", project.UpdateProjectInput{}); !isCode(err, apierrors.CodeValidation) {
+		t.Fatalf("an empty update must be rejected: %v", err)
+	}
+
+	for want := 1; want <= 3; want++ {
+		got, err := projects.NextVersion(ctx, "acme", "p")
+		if err != nil || got != want {
+			t.Fatalf("next version: %d, %v, want %d", got, err, want)
+		}
+		if err := versions.Create(ctx, &project.Version{ProjectID: "p", Number: got}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := projects.NextVersion(ctx, "globex", "p"); !isCode(err, apierrors.CodeNotFound) {
+		t.Fatalf("numbering in another workspace must be not found: %v", err)
+	}
+
+	list, err := versions.List(ctx, "p")
+	if err != nil || len(list) != 3 || list[0].Number != 3 {
+		t.Fatalf("versions must be newest first: %+v, %v", list, err)
+	}
+	if _, err := versions.Get(ctx, "p", 2); err != nil {
+		t.Fatalf("get version: %v", err)
+	}
+	if err := versions.DeleteAll(ctx, "p"); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ := versions.List(ctx, "p"); len(list) != 0 {
+		t.Fatalf("versions must be gone: %+v", list)
 	}
 }
 

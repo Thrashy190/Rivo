@@ -58,6 +58,7 @@
 
 - Give each company its own workspace, with folders and a team invited by email.
 - Give each person the access they need: owner, editor, operator or viewer.
+- Save diagrams as drafts and numbered versions. If two people edit at once, the second save is told to reload instead of overwriting the first.
 - Keep companies apart: a member of one workspace cannot see that another exists.
 
 **Stay in control**
@@ -69,7 +70,7 @@
 ## How it fits together
 
 <p align="center">
-  <img src="docs/images/architecture.svg" alt="Everything runs in your AWS account and Terraform creates it. Your team opens the web app, served from S3 and CloudFront, which is not connected to the API yet. API Gateway checks the Cognito token and calls Go Lambdas, which read and write DynamoDB. Lambdas also ask Cognito to email invitations." width="100%">
+  <img src="docs/images/architecture.svg" alt="Everything runs in your AWS account and Terraform creates it. Your team opens the web app, served from S3 and CloudFront, which is not connected to the API yet. API Gateway checks the Cognito token and calls Go Lambdas. The Lambdas keep workspaces and projects in DynamoDB and diagrams in S3, and ask Cognito to email invitations." width="100%">
 </p>
 
 More in [docs/architecture.md](docs/architecture.md).
@@ -133,14 +134,14 @@ Rivo has two kinds of administrator. **Platform administrators** run the install
 
 Platform administrators can only change a workspace they belong to, and each time they read one it is logged. Tell the people using your installation about this access.
 
-Project and deployment permissions take effect once those routes move inside workspaces. See [Limitations](#limitations).
+Deployment permissions take effect once deployments exist. See [Limitations](#limitations).
 
 ## Limitations
 
 - **The web app and the API are not connected.** The app runs on sample data saved in your browser, so sign-in checks nothing and nothing reaches your account.
 - **Rivo cannot generate Terraform or deploy yet.** The **Deploy** button does nothing, and the deploy history shows made-up runs.
 - **Other simulated controls:** *Invite members*, *Settings* and sign-in with GitHub or Google do not work yet.
-- **`/projects` in the API is not separated by workspace.** Do not put more than one company on an installation until it is.
+- **Access is per workspace.** Everyone in a workspace can see all its projects.
 - **The API sends no CORS headers,** which the web app will need once it is connected.
 - **AWS only.** Rivo runs on AWS and designs for AWS.
 
@@ -175,6 +176,8 @@ Each feature and fix is a [release](https://github.com/Thrashy190/Rivo/releases)
 | `workspace not found`, and it exists | You are not a member. Ask its owner for an invitation. |
 | `only a platform administrator can add a workspace owner` | Owners can invite editors, operators and viewers. New owners come from a platform administrator. |
 | `a workspace needs at least one owner` | Add the new owner before removing the old one. |
+| `the diagram changed since you opened it` | Someone else saved first. Load the diagram again. |
+| `save the diagram before creating a version` | A new project has nothing to copy yet. Save its draft first. |
 
 ## Development
 
