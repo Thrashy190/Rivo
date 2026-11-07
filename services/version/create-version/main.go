@@ -34,6 +34,7 @@ type VersionCreator interface {
 }
 
 type DiagramCopier interface {
+	Exists(ctx context.Context, key string) (bool, error)
 	Copy(ctx context.Context, from, to string) error
 }
 
@@ -77,12 +78,23 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		return apigateway.Error(err), nil
 	}
 
+	// Check before reserving a number: a reserved number is never given back, so
+	// trying too early would make the first real version number 2.
+	draft := storage.DraftKey(p.WorkspaceID, p.ID)
+	saved, err := diagrams.Exists(ctx, draft)
+	if err != nil {
+		return apigateway.Error(err), nil
+	}
+	if !saved {
+		return apigateway.Error(apierrors.Conflict("save the diagram before creating a version")), nil
+	}
+
 	number, err := projects.NextVersion(ctx, p.WorkspaceID, p.ID)
 	if err != nil {
 		return apigateway.Error(err), nil
 	}
 
-	err = diagrams.Copy(ctx, storage.DraftKey(p.WorkspaceID, p.ID), storage.VersionKey(p.WorkspaceID, p.ID, number))
+	err = diagrams.Copy(ctx, draft, storage.VersionKey(p.WorkspaceID, p.ID, number))
 	if err != nil {
 		var apiErr *apierrors.ApiError
 		if errors.As(err, &apiErr) && apiErr.Code == apierrors.CodeNotFound {

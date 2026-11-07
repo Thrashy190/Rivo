@@ -59,9 +59,16 @@ func TestDiagramLifecycle(t *testing.T) {
 		t.Fatalf("a missing draft must be not found: %v", err)
 	}
 
+	if ok, err := store.Exists(ctx, draft); ok || err != nil {
+		t.Fatalf("a missing draft must not exist: %v, %v", ok, err)
+	}
+
 	first, err := store.Put(ctx, draft, []byte(`{"v":1}`), "", true)
 	if err != nil || first == "" {
 		t.Fatalf("first save: %q, %v", first, err)
+	}
+	if ok, err := store.Exists(ctx, draft); !ok || err != nil {
+		t.Fatalf("a saved draft must exist: %v, %v", ok, err)
 	}
 	if _, err := store.Put(ctx, draft, []byte(`{"v":"rival"}`), "", true); code(err) != apierrors.CodeConflict {
 		t.Fatalf("a second first save must conflict: %v", err)

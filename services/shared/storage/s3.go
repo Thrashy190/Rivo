@@ -84,6 +84,18 @@ func (s *S3) Put(ctx context.Context, key string, body []byte, ifMatch string, i
 	return cleanETag(aws.ToString(out.ETag)), nil
 }
 
+// Exists reports whether an object is there, without reading it.
+func (s *S3) Exists(ctx context.Context, key string) (bool, error) {
+	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	if err != nil {
+		if isMissing(err) {
+			return false, nil
+		}
+		return false, apierrors.Internal(fmt.Errorf("s3 HeadObject: %w", err))
+	}
+	return true, nil
+}
+
 // Copy duplicates an object inside the bucket.
 func (s *S3) Copy(ctx context.Context, from, to string) error {
 	_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
@@ -121,10 +133,11 @@ func (s *S3) DeletePrefix(ctx context.Context, prefix string) error {
 }
 
 // isMissing checks the error code because the SDK only models NoSuchKey on some
-// operations: on CopyObject it arrives as a generic API error.
+// operations: on CopyObject it arrives as a generic API error, and HeadObject,
+// which has no body, answers NotFound.
 func isMissing(err error) bool {
 	var apiErr smithy.APIError
-	return errors.As(err, &apiErr) && apiErr.ErrorCode() == "NoSuchKey"
+	return errors.As(err, &apiErr) && (apiErr.ErrorCode() == "NoSuchKey" || apiErr.ErrorCode() == "NotFound")
 }
 
 func cleanETag(etag string) string {

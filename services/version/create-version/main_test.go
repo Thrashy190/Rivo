@@ -27,7 +27,7 @@ func (f fakeMembers) Get(_ context.Context, workspaceID, userID string) (*worksp
 	return nil, apierrors.NotFound("member")
 }
 
-type fakeProjects struct{}
+type fakeProjects struct{ reserved *int }
 
 func (fakeProjects) GetByID(_ context.Context, workspaceID, id string) (*project.Project, error) {
 	if workspaceID == "acme" && (id == "saved" || id == "new") {
@@ -36,7 +36,10 @@ func (fakeProjects) GetByID(_ context.Context, workspaceID, id string) (*project
 	return nil, apierrors.NotFound("project")
 }
 
-func (fakeProjects) NextVersion(context.Context, string, string) (int, error) { return 4, nil }
+func (f fakeProjects) NextVersion(context.Context, string, string) (int, error) {
+	*f.reserved++
+	return 4, nil
+}
 
 type fakeVersions struct{ created []*project.Version }
 
@@ -46,6 +49,10 @@ func (f *fakeVersions) Create(_ context.Context, v *project.Version) error {
 }
 
 type fakeDiagrams struct{ from, to string }
+
+func (f *fakeDiagrams) Exists(_ context.Context, key string) (bool, error) {
+	return key != "workspaces/acme/projects/new/draft.json", nil
+}
 
 func (f *fakeDiagrams) Copy(_ context.Context, from, to string) error {
 	if from == "workspaces/acme/projects/new/draft.json" {
@@ -68,8 +75,8 @@ func TestCreateVersion(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			v, d := &fakeVersions{}, &fakeDiagrams{}
-			users, projects, versions, diagrams = fakeUsers{}, fakeProjects{}, v, d
+			v, d, reserved := &fakeVersions{}, &fakeDiagrams{}, 0
+			users, projects, versions, diagrams = fakeUsers{}, fakeProjects{&reserved}, v, d
 			members = fakeMembers{"acme/editor": workspace.RoleEditor, "acme/viewer": workspace.RoleViewer}
 			res, err := handler(context.Background(), events.APIGatewayProxyRequest{
 				Body:           `{"note":"before the migration"}`,
@@ -86,6 +93,11 @@ func TestCreateVersion(t *testing.T) {
 			}
 			if len(v.created) != c.created {
 				t.Fatalf("created = %d, want %d", len(v.created), c.created)
+			}
+			// Found on AWS: a version tried before the first save used up
+			// number 1, so the first real version was number 2.
+			if reserved != c.created {
+				t.Fatalf("reserved %d version numbers, want %d", reserved, c.created)
 			}
 			if c.created == 1 {
 				if got := v.created[0]; got.Number != 4 || got.Note != "before the migration" || got.CreatedBy != "editor" {
