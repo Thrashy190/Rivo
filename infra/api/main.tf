@@ -96,6 +96,27 @@ module "lambda_new_password" {
   ]
 }
 
+module "lambda_refresh" {
+  source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
+  function_name       = "refresh"
+  path_directory_file = "auth/refresh/main.go"
+  project_name        = var.project_name
+  environment         = var.environment
+
+  environment_variables = {
+    USER_POOL_CLIENT_ID = module.cognito.app_client_id
+  }
+
+  statement = [
+    {
+      Effect   = "Allow"
+      Action   = ["cognito-idp:InitiateAuth"]
+      Resource = module.cognito.user_pool_arn
+    }
+  ]
+}
+
 # -- Lambdas: users --
 #
 # All of them read the users table because it holds the permission the handler
@@ -261,6 +282,13 @@ module "auth_new_password_resource" {
   path_part   = "new-password"
 }
 
+module "auth_refresh_resource" {
+  source      = "./modules/api/api-resource"
+  rest_api_id = module.rest_api.id
+  parent_id   = module.auth_resource.id
+  path_part   = "refresh"
+}
+
 module "users_resource" {
   source      = "./modules/api/api-resource"
   rest_api_id = module.rest_api.id
@@ -297,7 +325,7 @@ locals {
       }
     }
 
-    # Public by necessity: they run before the user has a token.
+    # Public by necessity: they run before the user has a valid token.
     login = {
       resource_id = module.auth_login_resource.id
       http_method = "POST"
@@ -316,6 +344,16 @@ locals {
       lambda = {
         invoke_arn    = module.lambda_new_password.invoke_arn
         function_name = module.lambda_new_password.function_name
+      }
+    }
+    refresh = {
+      resource_id = module.auth_refresh_resource.id
+      http_method = "POST"
+      route_path  = "auth/refresh"
+      public      = true
+      lambda = {
+        invoke_arn    = module.lambda_refresh.invoke_arn
+        function_name = module.lambda_refresh.function_name
       }
     }
 
