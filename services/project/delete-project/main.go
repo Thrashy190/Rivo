@@ -10,25 +10,35 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/Thrashy190/Rivo/services/shared/authz"
-	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
-	"github.com/Thrashy190/Rivo/services/shared/models/user"
+	"github.com/Thrashy190/Rivo/services/shared/models/project"
+	"github.com/Thrashy190/Rivo/services/shared/models/workspace"
 	"github.com/Thrashy190/Rivo/services/shared/repository"
+	"github.com/Thrashy190/Rivo/services/shared/storage"
 	"github.com/Thrashy190/Rivo/services/shared/transport/apigateway"
 )
 
-type ProjectDeleter interface {
-	Delete(ctx context.Context, id string) error
+type ProjectStore interface {
+	GetByID(ctx context.Context, workspaceID, id string) (*project.Project, error)
+	Delete(ctx context.Context, workspaceID, id string) error
 }
 
-type UserLoader interface {
-	GetByID(ctx context.Context, id string) (*user.User, error)
+type VersionDeleter interface {
+	DeleteAll(ctx context.Context, projectID string) error
+}
+
+type DiagramDeleter interface {
+	DeletePrefix(ctx context.Context, prefix string) error
 }
 
 var (
-	repo  ProjectDeleter
-	users UserLoader
+	users    authz.UserLoader
+	members  authz.MembershipLoader
+	projects ProjectStore
+	versions VersionDeleter
+	diagrams DiagramDeleter
 )
 
 func init() {
@@ -37,25 +47,36 @@ func init() {
 		panic(fmt.Sprintf("loading AWS config: %v", err))
 	}
 	client := dynamodb.NewFromConfig(cfg)
-	repo = repository.NewDynamoDBProjectRepository(client, os.Getenv("TABLE_NAME"))
 	users = repository.NewDynamoDBUserRepository(client, os.Getenv("USERS_TABLE_NAME"))
+	members = repository.NewDynamoDBMembershipRepository(client, os.Getenv("MEMBERS_TABLE_NAME"))
+	projects = repository.NewDynamoDBProjectRepository(client, os.Getenv("PROJECTS_TABLE_NAME"))
+	versions = repository.NewDynamoDBVersionRepository(client, os.Getenv("VERSIONS_TABLE_NAME"))
+	diagrams = storage.NewS3(s3.NewFromConfig(cfg), os.Getenv("DIAGRAMS_BUCKET"))
 }
 
+// Deletes the diagrams and versions first: if a step fails, the project still
+// exists and the deletion can be repeated.
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	if _, err := authz.Require(ctx, users, req, user.PermProjectsDelete); err != nil {
+	_, m, err := authz.RequireWorkspace(ctx, users, members, req, workspace.PermProjectsDelete)
+	if err != nil {
 		return apigateway.Error(err), nil
 	}
 
-	id := req.PathParameters["id"]
-	if id == "" {
-		return apigateway.Error(apierrors.Validation("id is required")), nil
-	}
-
-	if err := repo.Delete(ctx, id); err != nil {
+	p, err := projects.GetByID(ctx, m.WorkspaceID, req.PathParameters["projectId"])
+	if err != nil {
 		return apigateway.Error(err), nil
 	}
 
-	// 204: no body on purpose, there's nothing to return from a delete.
+	if err := diagrams.DeletePrefix(ctx, storage.ProjectPrefix(p.WorkspaceID, p.ID)); err != nil {
+		return apigateway.Error(err), nil
+	}
+	if err := versions.DeleteAll(ctx, p.ID); err != nil {
+		return apigateway.Error(err), nil
+	}
+	if err := projects.Delete(ctx, p.WorkspaceID, p.ID); err != nil {
+		return apigateway.Error(err), nil
+	}
+
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusNoContent}, nil
 }
 

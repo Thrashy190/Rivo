@@ -12,7 +12,7 @@ output "api_base_url" {
 output "endpoints" {
   description = "Method and full URL of every registered endpoint"
   value = {
-    for key, route in merge(local.routes, local.workspace_routes) :
+    for key, route in merge(local.routes, local.workspace_routes, local.project_routes) :
     key => "${route.http_method} ${local.api_base_url}/${route.route_path}"
   }
 }

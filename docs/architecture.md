@@ -39,7 +39,7 @@ A platform administrator who is not a member of a workspace acts as a viewer of 
 | Create, change and delete projects and folders | ✓ | ✓ | | |
 | Invite members and connect accounts | ✓ | | | |
 
-Owners can change or remove members with a restricted role, but not other owners. Project and deployment permissions already exist in the role table, and they will take effect when those routes move inside workspaces.
+Owners can change or remove members with a restricted role, but not other owners. Deployment permissions already exist in the role table, and they will take effect when deployments are built.
 
 ### How a request is authorized
 
@@ -68,10 +68,36 @@ Public signup is closed in Cognito. `POST /workspaces/{workspaceId}/members` cre
 | `GET /workspaces/{workspaceId}/folders` | `projects:read` |
 | `POST /workspaces/{workspaceId}/folders` | `folders:manage` |
 | `DELETE /workspaces/{workspaceId}/folders/{folderId}` | `folders:manage` |
+| `GET /workspaces/{workspaceId}/projects` | `projects:read` |
+| `POST /workspaces/{workspaceId}/projects` | `projects:create` |
+| `GET /workspaces/{workspaceId}/projects/{projectId}` | `projects:read` |
+| `PATCH /workspaces/{workspaceId}/projects/{projectId}` | `projects:update` |
+| `DELETE /workspaces/{workspaceId}/projects/{projectId}` | `projects:delete` |
+| `GET /workspaces/{workspaceId}/projects/{projectId}/draft` | `projects:read` |
+| `PUT /workspaces/{workspaceId}/projects/{projectId}/draft` | `projects:update` |
+| `GET /workspaces/{workspaceId}/projects/{projectId}/versions` | `projects:read` |
+| `POST /workspaces/{workspaceId}/projects/{projectId}/versions` | `projects:update` |
+| `GET /workspaces/{workspaceId}/projects/{projectId}/versions/{number}` | `projects:read` |
+
+## How diagrams are stored
+
+DynamoDB holds what a project is and S3 holds its diagrams, under one prefix per workspace and project:
+
+```text
+workspaces/{workspaceId}/projects/{projectId}/
+├── draft.json            # the diagram people are editing
+└── versions/{number}.json   # saved copies that never change
+```
+
+1. `GET .../draft` returns the diagram and its ETag. A new project returns an empty diagram and no ETag.
+2. `PUT .../draft` saves it. Send the ETag as `If-Match`, or `If-None-Match: *` on a first save. If someone else saved in between, the answer is a 409 instead of overwriting their work.
+3. `POST .../versions` copies the draft to the next version number, reserved atomically in DynamoDB.
+
+Every route looks the project up inside the workspace in the path before it touches S3. Deleting a project removes its diagrams and versions first, so a failed deletion can be repeated. The bucket keeps overwritten and deleted copies for 30 days.
 
 ## Known limits
 
-- **Project routes are not tenant-aware yet.** `/projects` is global and stores only a name and description. It must move inside workspaces before more than one company uses an installation.
+- **Access is per workspace, not per project.** Everyone in a workspace can see all its projects.
 - **The API sends no CORS headers,** which the web app will need once it is connected.
 - **Two concurrent changes could remove the last owner.** The check reads the member list and then writes, without a transaction.
 
@@ -79,6 +105,7 @@ Public signup is closed in Cognito. `POST /workspaces/{workspaceId}/members` cre
 
 - **One Lambda per action.** Each has narrow IAM permissions, at the cost of more Terraform and Go modules.
 - **DynamoDB, keyed by workspace.** It needs no VPC or connection pooling and costs nothing when idle. Partitioning by `workspace_id` keeps queries inside one tenant.
-- **Diagrams will live in S3.** DynamoDB holds at most 400 KB per item, and diagrams need drafts and versions.
+- **Diagrams live in S3.** DynamoDB holds at most 400 KB per item, and diagrams need drafts and versions.
+- **Diagrams go through the API, not presigned URLs.** The Lambda can validate each diagram, enforce the 5 MB limit and detect conflicts, and the bucket needs no CORS rules. Large binaries, such as Lambda packages, will need presigned URLs.
 - **AWS only, for now.** Rivo runs on AWS and designs for AWS.
 - **Terraform in the deployment engine.** Rivo is not sold as a hosted service today. Terraform's license (BUSL) restricts paid hosted offerings that compete with IBM's paid versions, so this must be reviewed before charging for hosting.

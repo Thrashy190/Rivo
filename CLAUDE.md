@@ -19,7 +19,7 @@ npm --prefix web run dev # web app on sample data
 npm --prefix web run storybook
 ```
 
-To include the repository tests, start DynamoDB Local and set `RIVO_DYNAMODB_ENDPOINT` (see `CONTRIBUTING.md`).
+To include the storage tests, start DynamoDB Local and S3Mock, and set `RIVO_DYNAMODB_ENDPOINT` and `RIVO_S3_ENDPOINT` (see `CONTRIBUTING.md`).
 
 ## Rules that are easy to break
 
@@ -28,6 +28,8 @@ To include the repository tests, start DynamoDB Local and set `RIVO_DYNAMODB_END
 - **Stay within this architecture.** AWS only, with Lambdas for the API, DynamoDB for metadata, S3 for diagrams and Fargate for the deployment engine. The maintainer ruled out a cloud-neutral core, Postgres and a single server because of the added complexity. Do not propose them again unless asked.
 - **Tenant isolation comes first.** Workspace routes use `authz.RequireWorkspace`, and every query is limited to the workspace in the path. Test it with a member of another workspace.
 - **Two kinds of administrator.** Platform administrators (`users` table, role `admin`) run the installation, can read every workspace (each read is logged) but change only those they belong to, and are the only ones who can create other administrators and workspace owners. Workspace owners (`memberships` table, role `owner`) manage their workspace and can invite only editors, operators and viewers.
+- **Look the project up in its workspace before touching S3.** S3 keys are built from IDs in the path, and `GetByID` is what proves they belong together.
+- **A missing S3 object needs `s3:ListBucket`.** Without it S3 answers "access denied" instead of "not found". Check the error code too: the SDK does not model `NoSuchKey` on `CopyObject`.
 - **Never run Terraform from a user or a repository.** The engine may only run what Rivo generates from its catalog: a `local-exec` in user HCL would run code with the engine's role.
 - **No credentials to the deployment task.** It gets a deployment ID and assumes the target role, with an external ID per connection.
 - **`go build ./...` drops a binary in a Lambda folder.** Use `go vet ./...` to check, as `make lint` does.
@@ -49,7 +51,7 @@ To include the repository tests, start DynamoDB Local and set `RIVO_DYNAMODB_END
 
 In order:
 
-1. Move projects inside workspaces, with metadata in DynamoDB and diagrams, drafts and versions in S3 through presigned URLs. Add project-level access.
+1. Add project-level access, so a workspace can limit who sees each project. Add presigned uploads for Lambda packages.
 2. Add CORS, connect the web app to the API, add workspace screens and remove `mockStore.ts`. Hide simulated features until they work: Deploy, Invite members, Settings, GitHub and Google sign-in, and the deploy history.
 3. Generate Terraform from the diagram and let people download it.
 4. Connect AWS accounts (role ARN plus external ID), run plan, approval and apply on Fargate, and show pipelines in a dashboard. Record task duration per workspace, because hosting may later bill by infrastructure and usage time.

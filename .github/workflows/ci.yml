@@ -15,8 +15,13 @@ jobs:
         image: amazon/dynamodb-local
         ports:
           - 8000:8000
+      s3:
+        image: adobe/s3mock
+        ports:
+          - 9090:9090
     env:
       RIVO_DYNAMODB_ENDPOINT: http://localhost:8000
+      RIVO_S3_ENDPOINT: http://localhost:9090
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

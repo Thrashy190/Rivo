@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="title desc">
   <title id="title">How Rivo fits together</title>
-  <desc id="desc">Everything runs in your AWS account and Terraform creates it. The web app is served from S3 and CloudFront, and it is not connected to the API yet. API Gateway checks the Cognito token and calls Go Lambdas, which read and write DynamoDB. Cognito handles sign-in and emails invitations.</desc>
+  <desc id="desc">Everything runs in your AWS account and Terraform creates it. The web app is served from S3 and CloudFront, and it is not connected to the API yet. API Gateway checks the Cognito token and calls Go Lambdas, which keep workspaces and projects in DynamoDB and diagrams in S3. Cognito handles sign-in and emails invitations.</desc>
   <defs>
     <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#1b2526"/></pattern>
     <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cf0e2"/><stop offset="1" stop-color="#22b8a8"/></linearGradient>
@@ -59,13 +59,18 @@
   <text x="620" y="480" class="d">Folders and projects</text>
   <text x="620" y="502" class="d">Permission check on each one</text>
 
+  <rect x="910" y="166" width="290" height="104" rx="12" class="card"/>
+  <text x="930" y="204" class="t">S3</text>
+  <text x="930" y="228" class="d">Diagrams, drafts and versions</text>
+  <text x="930" y="248" class="d">One prefix for each project</text>
+
   <rect x="910" y="342" width="290" height="186" rx="12" class="card"/>
   <text x="930" y="380" class="t">DynamoDB</text>
   <text x="930" y="404" class="d">Queries stay inside one workspace</text>
   <text x="930" y="436" class="d">users</text>
   <text x="930" y="458" class="d">workspaces and memberships</text>
   <text x="930" y="480" class="d">folders</text>
-  <text x="930" y="502" class="d">projects</text>
+  <text x="930" y="502" class="d">projects and versions</text>
 
   <path d="M210 262H250Q270 262 270 242V228Q270 218 280 218H288" class="g" marker-end="url(#a-grey)"/>
   <path d="M210 298H250Q270 298 270 318V384Q270 394 280 394H288" class="g" marker-end="url(#a-grey)"/>
@@ -73,6 +78,7 @@
   <text x="555" y="206" text-anchor="middle" class="label">not connected</text>
   <path d="M710 270V340" class="e" marker-end="url(#a-teal)"/>
   <path d="M820 435H908" class="e" marker-end="url(#a-teal)"/>
+  <path d="M820 380H850Q865 380 865 365V233Q865 218 880 218H908" class="e" marker-end="url(#a-teal)"/>
   <path d="M598 394H512" class="e" marker-end="url(#a-teal)"/>
   <text x="555" y="384" text-anchor="middle" class="tl">invites</text>
 </svg>

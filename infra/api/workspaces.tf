@@ -344,6 +344,11 @@ module "lambda_delete_folder" {
       Effect   = "Allow"
       Action   = ["dynamodb:DeleteItem", "dynamodb:Query"]
       Resource = module.folders_table.arn
+    },
+    {
+      Effect   = "Allow"
+      Action   = ["dynamodb:Query"]
+      Resource = module.projects_table.arn
     }
   ]
 }
