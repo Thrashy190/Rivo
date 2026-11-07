@@ -52,4 +52,4 @@ The architecture in `aws_lambda_function` must match `GOARCH`.
 
 3. Register it in Terraform with only the IAM actions it needs, pass `cors_allow_origin = var.web_origin` so the web app can read its answers, and add its route. API Gateway answers the browser's `OPTIONS` request for the new path by itself. See `infra/api/projects.tf`.
 4. Add a test that covers its permissions, including someone from another workspace.
-5. Run `make check` from the repository root.
+5. Run `make check` from the repository root. Among other things, it checks that Terraform sets every environment variable the Lambda's code reads (`scripts/check-lambda-env.py`): a missing one is an empty string at runtime, which unit tests don't see.

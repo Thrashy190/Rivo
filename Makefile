@@ -17,6 +17,7 @@ lint: ## Check formatting and static analysis in every part of the repo
 		(cd $$dir && GOWORK=off go vet ./...) || exit 1; \
 	done
 	terraform fmt -check -recursive infra
+	python3 scripts/check-lambda-env.py
 	@for dir in $(TF_ROOTS); do \
 		terraform -chdir=$$dir init -backend=false -input=false -lockfile=readonly >/dev/null && \
 		terraform -chdir=$$dir validate || exit 1; \
