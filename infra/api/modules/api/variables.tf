@@ -9,7 +9,7 @@ variable "api_execution_arn" {
 }
 
 variable "routes" {
-  description = "Routes to connect: resource_id, http_method, route_path and target Lambda details. public = true leaves the route without an authorizer (only login and new-password, which run before a token exists)"
+  description = "Routes to connect: resource_id, http_method, route_path and target Lambda details. public = true leaves the route without an authorizer (only the auth routes, which run before a valid token exists)"
 
   type = map(object({
     resource_id = string
@@ -36,4 +36,10 @@ variable "environment" {
 variable "project_name" {
   type        = string
   description = "Project name for tagging"
+}
+
+variable "web_origin" {
+  type        = string
+  description = "Origin of the hosted web app for CORS. Empty creates no CORS resources."
+  default     = ""
 }

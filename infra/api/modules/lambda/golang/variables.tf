@@ -45,3 +45,9 @@ variable "environment_variables" {
   type        = map(string)
   default     = {}
 }
+
+variable "cors_allow_origin" {
+  type        = string
+  description = "Origin of the web app, sent in Access-Control-Allow-Origin. Empty sends no CORS headers."
+  default     = ""
+}

@@ -39,3 +39,16 @@ variable "admin_email" {
     error_message = "admin_email must be a real email address (edit environments/<env>/<env>.tfvars): the temporary password for the initial admin is sent there."
   }
 }
+# The browser only lets the web app read the API's answers when they name its
+# origin. Leave it empty until the web app is hosted: local development goes
+# through the Vite proxy, which needs no CORS.
+variable "web_origin" {
+  type        = string
+  description = "Origin of the hosted web app, such as https://d1234abcd.cloudfront.net, with no path or trailing slash"
+  default     = ""
+
+  validation {
+    condition     = var.web_origin == "" || can(regex("^https?://[^/[:space:]]+$", var.web_origin))
+    error_message = "web_origin must look like https://d1234abcd.cloudfront.net, with no path or trailing slash, or be empty."
+  }
+}

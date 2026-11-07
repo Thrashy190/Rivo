@@ -45,6 +45,7 @@ resource "aws_dynamodb_table_item" "admin_user" {
 
 module "lambda_ping" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "ping"
   path_directory_file = "ping/main.go"
   project_name        = var.project_name
@@ -55,6 +56,7 @@ module "lambda_ping" {
 
 module "lambda_login" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "login"
   path_directory_file = "auth/login/main.go"
   project_name        = var.project_name
@@ -75,6 +77,7 @@ module "lambda_login" {
 
 module "lambda_new_password" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "new-password"
   path_directory_file = "auth/new-password/main.go"
   project_name        = var.project_name
@@ -100,6 +103,7 @@ module "lambda_new_password" {
 
 module "lambda_create_user" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "create-user"
   path_directory_file = "user/create-user/main.go"
   project_name        = var.project_name
@@ -126,6 +130,7 @@ module "lambda_create_user" {
 
 module "lambda_get_all_users" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "get-all-users"
   path_directory_file = "user/get-all-users/main.go"
   project_name        = var.project_name
@@ -146,6 +151,7 @@ module "lambda_get_all_users" {
 
 module "lambda_get_me" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "get-me"
   path_directory_file = "user/get-me/main.go"
   project_name        = var.project_name
@@ -166,6 +172,7 @@ module "lambda_get_me" {
 
 module "lambda_update_user" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "update-user"
   path_directory_file = "user/update-user/main.go"
   project_name        = var.project_name
@@ -186,6 +193,7 @@ module "lambda_update_user" {
 
 module "lambda_delete_user" {
   source              = "./modules/lambda/golang"
+  cors_allow_origin   = var.web_origin
   function_name       = "delete-user"
   path_directory_file = "user/delete-user/main.go"
   project_name        = var.project_name
@@ -369,4 +377,5 @@ module "api" {
   authorizer_id     = module.api_authorizer.id
   environment       = var.environment
   routes            = merge(local.routes, local.workspace_routes, local.project_routes)
+  web_origin        = var.web_origin
 }

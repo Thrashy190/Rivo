@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -58,7 +57,7 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		return apigateway.Error(err), nil
 	}
 
-	return events.APIGatewayProxyResponse{StatusCode: http.StatusNoContent}, nil
+	return apigateway.NoContent(), nil
 }
 
 func main() {
