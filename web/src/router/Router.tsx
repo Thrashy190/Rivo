@@ -5,6 +5,7 @@ import { SnackbarContainer } from "../components/Snackbar/SnackbarContainer";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AuthLayout } from "../layout/AuthLayout";
 import { LoginPage } from "../pages/LoginPage";
+import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { HomePage } from "../pages/HomePage";
 import { WorkspacesPage } from "../pages/WorkspacesPage";
 import { CreateWorkspacePage } from "../pages/CreateWorkspacePage";
@@ -23,6 +24,7 @@ const Router = () => (
         <Routes>
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>

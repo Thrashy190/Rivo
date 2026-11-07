@@ -12,8 +12,11 @@ resource "aws_cognito_user_pool" "this" {
     require_uppercase = true
   }
 
+  # Also the email with the code to reset a forgotten password.
   verification_message_template {
     default_email_option = "CONFIRM_WITH_CODE"
+    email_subject        = "Your Rivo code"
+    email_message        = "Your Rivo code is {####}. It expires in one hour. If you didn't ask for it, you can ignore this email."
   }
 
   # No public signup: a user only gets in if someone with users:manage
