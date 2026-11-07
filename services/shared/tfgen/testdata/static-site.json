@@ -1,0 +1,10 @@
+{
+  "version": "canvas/1",
+  "nodes": [
+    {"id": "s3-1", "type": "s3", "label": "S3 Bucket", "position": {"x": 0, "y": 0}, "config": {"name": "site", "versioning": false, "encryption": "AES256", "blockPublicAccess": true, "forceDestroy": true}},
+    {"id": "cloudfront-2", "type": "cloudfront", "label": "CloudFront", "position": {"x": 300, "y": 0}, "config": {"name": "cdn", "priceClass": "PriceClass_100", "httpVersion": "http2and3", "defaultRootObject": "index.html", "compress": true, "spa": true}}
+  ],
+  "edges": [
+    {"id": "edge-cloudfront-2__s3-1", "sourceId": "cloudfront-2", "targetId": "s3-1"}
+  ]
+}

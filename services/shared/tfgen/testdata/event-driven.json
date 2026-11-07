@@ -1,0 +1,15 @@
+{
+  "version": "canvas/1",
+  "nodes": [
+    {"id": "eventbridge-1", "type": "eventbridge", "label": "EventBridge Rule", "position": {"x": 0, "y": 0}, "config": {"name": "every-minute", "trigger": "schedule", "schedule": "rate(1 minute)", "enabled": true}},
+    {"id": "lambda-2", "type": "lambda", "label": "Lambda Function", "position": {"x": 300, "y": 0}, "config": {"name": "worker", "runtime": "python3.13", "memory": 128, "timeout": 30, "handler": "index.handler", "source": "inline",
+      "code": "import json\n\n\ndef handler(event, context):\n    print(json.dumps({\"received\": event.get(\"detail-type\"), \"source\": event.get(\"source\")}))\n    return {\"ok\": True}\n"}},
+    {"id": "eventbridge-3", "type": "eventbridge", "label": "EventBridge Rule", "position": {"x": 0, "y": 200}, "config": {"name": "orders", "trigger": "pattern", "eventPattern": "{\"source\": [\"shop.orders\"], \"detail-type\": [\"order.created\"]}"}},
+    {"id": "lambda-4", "type": "lambda", "label": "Lambda Function", "position": {"x": -300, "y": 200}, "config": {"name": "publisher", "runtime": "nodejs22.x", "handler": "index.handler"}}
+  ],
+  "edges": [
+    {"id": "e1", "sourceId": "eventbridge-1", "targetId": "lambda-2"},
+    {"id": "e2", "sourceId": "eventbridge-3", "targetId": "lambda-2"},
+    {"id": "e3", "sourceId": "lambda-4", "targetId": "eventbridge-3"}
+  ]
+}

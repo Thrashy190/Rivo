@@ -1,0 +1,83 @@
+{
+  "version": "canvas/1",
+  "nodes": [
+    {
+      "id": "api-gateway-1",
+      "type": "api-gateway",
+      "label": "API Gateway",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "config": {
+        "name": "items-api",
+        "apiType": "HTTP",
+        "stage": "$default",
+        "authorizationType": "NONE",
+        "cors": true
+      }
+    },
+    {
+      "id": "lambda-2",
+      "type": "lambda",
+      "label": "Lambda Function",
+      "position": {
+        "x": 300,
+        "y": 0
+      },
+      "config": {
+        "name": "items",
+        "runtime": "nodejs22.x",
+        "memory": 256,
+        "timeout": 10,
+        "handler": "index.handler",
+        "architecture": "arm64",
+        "source": "inline",
+        "code": "const { DynamoDBClient } = require(\"@aws-sdk/client-dynamodb\");\nconst { DynamoDBDocumentClient, PutCommand, ScanCommand } = require(\"@aws-sdk/lib-dynamodb\");\n\nconst db = DynamoDBDocumentClient.from(new DynamoDBClient({}));\nconst table = process.env.ITEMS_TABLE;\n\nexports.handler = async (event) => {\n  if (event.requestContext.http.method === \"POST\") {\n    const raw = event.isBase64Encoded ? Buffer.from(event.body, \"base64\").toString() : event.body;\n    const item = { id: Date.now().toString(), ...JSON.parse(raw || \"{}\") };\n    await db.send(new PutCommand({ TableName: table, Item: item }));\n    return { statusCode: 201, body: JSON.stringify(item) };\n  }\n  const { Items } = await db.send(new ScanCommand({ TableName: table }));\n  return { statusCode: 200, body: JSON.stringify(Items) };\n};\n"
+      }
+    },
+    {
+      "id": "dynamodb-3",
+      "type": "dynamodb",
+      "label": "DynamoDB Table",
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "config": {
+        "name": "items",
+        "billingMode": "PAY_PER_REQUEST",
+        "partitionKey": "id",
+        "partitionKeyType": "S",
+        "pointInTimeRecovery": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "sourceId": "api-gateway-1",
+      "targetId": "lambda-2",
+      "config": {
+        "routes": [
+          {
+            "method": "GET",
+            "path": "/items"
+          },
+          {
+            "method": "POST",
+            "path": "/items"
+          }
+        ]
+      }
+    },
+    {
+      "id": "e3",
+      "sourceId": "lambda-2",
+      "targetId": "dynamodb-3",
+      "config": {
+        "access": "readwrite"
+      }
+    }
+  ]
+}

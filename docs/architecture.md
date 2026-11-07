@@ -1,6 +1,6 @@
 # Architecture
 
-Rivo has a React web app and a serverless API in Go, both deployed to AWS with Terraform. The app signs in with Cognito through the API and reads and writes everything through it. Generating Terraform from a diagram and deploying it are not built yet.
+Rivo has a React web app and a serverless API in Go, both deployed to AWS with Terraform. The app signs in with Cognito through the API and reads and writes everything through it. The API generates Terraform from a diagram for people to download; deploying it from Rivo is not built yet.
 
 ## Code map
 
@@ -11,6 +11,7 @@ Rivo has a React web app and a serverless API in Go, both deployed to AWS with T
 | `web/src/features/workspace/` | The workspace in the URL, its folders and your role in it |
 | `web/src/features/canvas/` | The hand-written canvas, its service catalog and configuration panels |
 | `services/shared/` | Go code shared by the Lambdas: models, permissions, repositories and responses |
+| `services/shared/tfgen/` | Turns a diagram into Terraform. The export Lambda uses it, and the deployment engine will |
 | `services/<area>/<action>/` | One Lambda per action, each with its own Go module |
 | `infra/api/` | Terraform for the API: Lambdas, API Gateway, DynamoDB and Cognito |
 | `infra/web/` | Terraform for hosting the web app: S3 and CloudFront |
@@ -81,6 +82,7 @@ Public signup is closed in Cognito. `POST /workspaces/{workspaceId}/members` cre
 | `GET /workspaces/{workspaceId}/projects/{projectId}/versions/{number}` | `projects:read` |
 | `POST /workspaces/{workspaceId}/projects/{projectId}/packages` | `projects:update` |
 | `GET /workspaces/{workspaceId}/projects/{projectId}/packages/{packageId}` | `projects:read` |
+| `POST /workspaces/{workspaceId}/projects/{projectId}/terraform` | `projects:read` |
 
 ## How diagrams are stored
 
@@ -90,7 +92,8 @@ DynamoDB holds what a project is and S3 holds its diagrams, under one prefix per
 workspaces/{workspaceId}/projects/{projectId}/
 ├── draft.json            # the diagram people are editing
 ├── versions/{number}.json   # saved copies that never change
-└── packages/{packageId}.zip # Lambda code uploaded as a .zip
+├── packages/{packageId}.zip # Lambda code uploaded as a .zip
+└── exports/terraform.zip    # the last Terraform generated, replaced by the next
 ```
 
 1. `GET .../draft` returns the diagram and its ETag. A new project returns an empty diagram and no ETag.
@@ -100,6 +103,25 @@ workspaces/{workspaceId}/projects/{projectId}/
 A Lambda's code is part of its node in the diagram: written in the editor, it is stored in the node itself, up to 256 KB. A `.zip` is uploaded straight from the browser to S3 with a form that `POST .../packages` signs for 15 minutes, which S3 limits to 50 MB, and the node keeps its package ID. Packages stay until the project is deleted, because versions may still use them.
 
 Every route looks the project up inside the workspace in the path before it touches S3. Deleting a project removes its diagrams and versions first, so a failed deletion can be repeated. The bucket keeps overwritten and deleted copies for 30 days.
+
+## How a diagram becomes Terraform
+
+`POST .../terraform` reads the saved draft, or a version with `{"version": n}`, and `services/shared/tfgen` writes a Terraform configuration from it. The Lambda stores it as a `.zip` with the Lambda packages it uses, and answers with the files, the warnings and a link to the `.zip` that lasts five minutes. Reading a project is enough: nothing in AWS changes.
+
+| In the diagram | Becomes |
+|---|---|
+| Lambda | A function with its own role and log group. Code from the editor goes in `functions/`, an uploaded `.zip` in `packages/`, and a function with neither gets a placeholder that answers "Hello from Lambda". |
+| API Gateway → Lambda | An HTTP API, an integration per function and a route per method and path on the connection |
+| Lambda ↔ DynamoDB or S3 | Read, write or both on the table or bucket, and its name in `ITEMS_TABLE` or `SITE_BUCKET` |
+| CloudFront → S3 | A distribution that reads a private bucket through origin access control, and the files in `site/<bucket>/` |
+| EventBridge → Lambda | A rule, on a schedule or an event pattern, that runs the function |
+| Lambda → EventBridge | Permission to send events to the default bus, named in `EVENT_BUS_NAME` |
+
+Other services and connections are left out, and each one becomes a warning. Every name starts with the `name_prefix` variable, and the region defaults to the project's.
+
+Only Rivo writes the HCL. Values from the diagram, such as names, handlers and paths, go in as quoted strings with `${` escaped, or are checked against a pattern first, so a diagram cannot add a resource or a provisioner. That is what will let the engine run the result with its own role (see "Never run Terraform from a user" in `CLAUDE.md`). Package IDs are validated before they become S3 keys.
+
+`go test ./tfgen/` checks the output for the three blueprints. With `RIVO_TERRAFORM_CHECK=1` it also runs `terraform fmt -check` and `terraform validate` on them, which downloads the AWS provider.
 
 ## How the web app talks to the API
 
@@ -129,4 +151,6 @@ Every route looks the project up inside the workspace in the path before it touc
 - **Diagrams live in S3.** DynamoDB holds at most 400 KB per item, and diagrams need drafts and versions.
 - **Diagrams go through the API, packages do not.** A Lambda can validate each diagram, enforce the 5 MB limit and detect conflicts. A `.zip` is too large for a Lambda's 6 MB request limit, so it goes to S3 with a presigned form, and the bucket allows uploads from `web_origin` and `dev_web_origin`.
 - **AWS only, for now.** Rivo runs on AWS and designs for AWS.
+- **Terraform is generated in Go, in the API.** The export and the future engine share one generator, and the browser never sends HCL. Diagrams name what to create; Rivo decides how.
+- **HTTP APIs, not REST APIs.** They cost less and cover Lambda routes, CORS and throttling. REST APIs in a diagram are generated as HTTP APIs, with a warning.
 - **Terraform in the deployment engine.** Rivo is not sold as a hosted service today. Terraform's license (BUSL) restricts paid hosted offerings that compete with IBM's paid versions, so this must be reviewed before charging for hosting.

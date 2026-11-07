@@ -36,6 +36,12 @@ func PackageKey(workspaceID, projectID, packageID string) string {
 	return fmt.Sprintf("%spackages/%s.zip", ProjectPrefix(workspaceID, projectID), packageID)
 }
 
+// ExportKey is where the last Terraform generated for a project waits to be
+// downloaded. Each export replaces the previous one.
+func ExportKey(workspaceID, projectID string) string {
+	return ProjectPrefix(workspaceID, projectID) + "exports/terraform.zip"
+}
+
 // Upload is a presigned form POST: send Fields, then the file, to URL.
 type Upload struct {
 	URL    string
@@ -95,6 +101,20 @@ func (s *S3) Put(ctx context.Context, key string, body []byte, ifMatch string, i
 		return "", apierrors.Internal(fmt.Errorf("s3 PutObject: %w", err))
 	}
 	return cleanETag(aws.ToString(out.ETag)), nil
+}
+
+// PutFile stores a file that is not a diagram, such as an export.
+func (s *S3) PutFile(ctx context.Context, key string, body []byte, contentType string) error {
+	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(s.bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(body),
+		ContentType: aws.String(contentType),
+	})
+	if err != nil {
+		return apierrors.Internal(fmt.Errorf("s3 PutObject: %w", err))
+	}
+	return nil
 }
 
 // Exists reports whether an object is there, without reading it.
