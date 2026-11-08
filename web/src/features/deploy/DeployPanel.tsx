@@ -232,7 +232,7 @@ export function DeployPanel({
         {/* The selected deployment */}
         {selectedId && !shown && <p className="px-5 py-4 text-xs text-ink-dim">Loading the deployment…</p>}
         {shown && (
-          <section className="px-5 py-4 border-b border-edge">
+          <section aria-label="Selected deployment" data-deployment-id={shown.deploymentId} className="px-5 py-4 border-b border-edge">
             <div className="flex items-center gap-2 mb-1">
               <StatusBadge status={shown.status} />
               <span className="text-xs font-medium text-ink">{shown.action === "destroy" ? "Destroy" : "Deploy"}</span>

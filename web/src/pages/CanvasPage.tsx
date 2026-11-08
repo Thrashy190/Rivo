@@ -393,6 +393,7 @@ export function CanvasPage() {
             animated={animated}
             emptyState={emptyState}
             liveIds={liveIds}
+            fitKey={loaded}
             onAddNode={(type, pos) => selectNode(addNode(type, pos))}
             onMoveNode={moveNode}
             onResizeNode={resizeNode}

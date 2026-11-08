@@ -86,7 +86,9 @@ export function ApiTestModal({ workspaceId, projectId, api, nodes, edges, baseUr
     setRouteIndex(i);
     const m = routes[i]?.method ?? "GET";
     setMethod(m === "ANY" ? "GET" : m);
-    setTab(BODY_METHODS.has(m) ? "body" : "params");
+    // Path parameters come first; then the body, for methods that usually send one.
+    const needsParams = (routes[i]?.path ?? "").includes("{");
+    setTab(!needsParams && ["POST", "PUT", "PATCH"].includes(m) ? "body" : "params");
   };
 
   const send = async () => {

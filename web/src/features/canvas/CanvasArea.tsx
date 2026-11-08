@@ -20,6 +20,8 @@ interface CanvasAreaProps {
   emptyState?: ReactNode;
   // Nodes that are deployed and reachable.
   liveIds?: Set<string>;
+  // The view fits the diagram each time this changes, such as when it loads.
+  fitKey?: number;
   onAddNode: (serviceId: string, position: { x: number; y: number }) => void;
   onMoveNode: (nodeId: string, position: { x: number; y: number }) => void;
   onResizeNode: (nodeId: string, size: { width: number; height: number }) => void;
@@ -54,6 +56,7 @@ export function CanvasArea({
   animated = false,
   emptyState,
   liveIds,
+  fitKey,
   onAddNode,
   onMoveNode,
   onResizeNode,
@@ -201,6 +204,14 @@ export function CanvasArea({
       y: rect.height / 2 - ((minY + maxY) / 2) * zoom,
     });
   };
+
+  const fitRef = useRef(fitView);
+  useEffect(() => {
+    fitRef.current = fitView;
+  });
+  useEffect(() => {
+    if (fitKey !== undefined) fitRef.current();
+  }, [fitKey]);
 
   // ── Drop from the library ────────────────────────────────────────────────
   const handleDragOver = (e: React.DragEvent) => {

@@ -137,10 +137,7 @@ export function ServiceNode({
           <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink leading-tight min-w-0">
             <span className="truncate">{name}</span>
             {live && (
-              <span title="Deployed" className="shrink-0 inline-flex items-center gap-1 px-1.5 py-px rounded-full bg-emerald-500/10 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Live
-              </span>
+              <span title="Deployed" aria-label="Live" className="shrink-0 w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]" />
             )}
           </p>
           <p className="text-[11px] text-ink-dim leading-tight truncate mt-1">{summary ?? node.label}</p>
