@@ -320,3 +320,51 @@ func TestFunctionFiles(t *testing.T) {
 		t.Errorf("want 3 warnings, got %+v", res.Warnings)
 	}
 }
+
+func TestDeployTarget(t *testing.T) {
+	body, _ := os.ReadFile(filepath.Join("testdata", "serverless-api.json"))
+	d, _ := Parse(body)
+	res, err := Generate(d, Options{ProjectName: "Demo Shop", Region: "us-east-1", Deploy: &Deploy{
+		AccountID:   "123456789012",
+		RoleARN:     "arn:aws:iam::123456789012:role/rivo-deploy",
+		ExternalID:  "ext-123",
+		SessionName: "rivo-d1",
+		StateBucket: "rivo-dev-diagrams",
+		StateKey:    "workspaces/w/projects/p/state/terraform.tfstate",
+		StateRegion: "us-east-1",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustContain(t, content(res, "providers.tf"),
+		`backend "s3"`,
+		`use_lockfile = true`,
+		`key          = "workspaces/w/projects/p/state/terraform.tfstate"`,
+		`allowed_account_ids = ["123456789012"]`,
+		`role_arn     = "arn:aws:iam::123456789012:role/rivo-deploy"`,
+		`external_id  = "ext-123"`,
+	)
+	var api *Output
+	for i, o := range res.Outputs {
+		if o.NodeID == "api" {
+			api = &res.Outputs[i]
+		}
+	}
+	if api == nil || api.Name != "items_api_url" || api.Kind != "url" {
+		t.Errorf("outputs: %+v", res.Outputs)
+	}
+	// Without a target, the download keeps local state and the caller's credentials.
+	plain := generateFile(t, "serverless-api.json")
+	if strings.Contains(content(plain, "providers.tf"), "backend") || strings.Contains(content(plain, "providers.tf"), "assume_role") {
+		t.Error("an export without a target has a backend or a role")
+	}
+}
+
+func TestTeardownHasOnlyProviders(t *testing.T) {
+	res := Teardown(Options{ProjectName: "p", Region: "eu-west-1", Deploy: &Deploy{AccountID: "123456789012", RoleARN: "arn:aws:iam::123456789012:role/r", ExternalID: "e", SessionName: "s", StateBucket: "b", StateKey: "k", StateRegion: "us-east-1"}})
+	if len(res.Files) != 2 || res.Files[0].Path != "providers.tf" || res.Files[1].Path != "variables.tf" {
+		t.Fatalf("files: %+v", res.Files)
+	}
+	mustContain(t, res.Files[0].Content, `backend "s3"`, `hashicorp/archive`, `assume_role`)
+	mustContain(t, res.Files[1].Content, `default     = "eu-west-1"`)
+}

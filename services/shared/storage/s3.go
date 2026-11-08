@@ -42,6 +42,19 @@ func ExportKey(workspaceID, projectID string) string {
 	return ProjectPrefix(workspaceID, projectID) + "exports/terraform.zip"
 }
 
+// DeploymentKey is a file of one deployment: the diagram it deploys
+// (diagram.json), the readable plan (plan.json), the working directory with
+// the saved plan (workdir.tar.gz) and the engine's logs (plan.log, apply.log).
+func DeploymentKey(workspaceID, projectID, deploymentID, name string) string {
+	return fmt.Sprintf("%sdeployments/%s/%s", ProjectPrefix(workspaceID, projectID), deploymentID, name)
+}
+
+// StateKey is the Terraform state of the project's infrastructure. The bucket
+// keeps old versions of it, and Terraform locks it with a .tflock next to it.
+func StateKey(workspaceID, projectID string) string {
+	return ProjectPrefix(workspaceID, projectID) + "state/terraform.tfstate"
+}
+
 // Upload is a presigned form POST: send Fields, then the file, to URL.
 type Upload struct {
 	URL    string

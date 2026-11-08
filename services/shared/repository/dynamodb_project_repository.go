@@ -204,3 +204,124 @@ func (r *DynamoDBProjectRepository) List(ctx context.Context, workspaceID string
 	}
 	return projects, nil
 }
+
+// Lock gives the project to a deployment, so only one works on it at a time.
+// A lock held by a deployment that already finished (stale) is taken over.
+func (r *DynamoDBProjectRepository) Lock(ctx context.Context, workspaceID, id, deploymentID, stale string) error {
+	cond := "attribute_exists(id) AND (attribute_not_exists(active_deployment) OR active_deployment = :empty)"
+	values := map[string]types.AttributeValue{
+		":d":     &types.AttributeValueMemberS{Value: deploymentID},
+		":empty": &types.AttributeValueMemberS{Value: ""},
+		":now":   &types.AttributeValueMemberN{Value: nowMillis()},
+	}
+	if stale != "" {
+		cond = "attribute_exists(id) AND active_deployment = :stale"
+		delete(values, ":empty")
+		values[":stale"] = &types.AttributeValueMemberS{Value: stale}
+	}
+	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(r.table),
+		Key:                       projectKey(workspaceID, id),
+		UpdateExpression:          aws.String("SET active_deployment = :d, last_deployment = :d, updated_at = :now"),
+		ConditionExpression:       aws.String(cond),
+		ExpressionAttributeValues: values,
+	})
+	if err != nil {
+		var held *types.ConditionalCheckFailedException
+		if errors.As(err, &held) {
+			return apierrors.Conflict("another deployment of this project is in progress")
+		}
+		return apierrors.Internal(fmt.Errorf("dynamodb UpdateItem: %w", err))
+	}
+	return nil
+}
+
+// DeploymentResult records how a deployment left the project.
+type DeploymentResult struct {
+	Status string
+	// Set while the project has infrastructure in this account; cleared after
+	// a destroy.
+	ConnectionID string
+	Endpoints    map[string]map[string]string
+	// The plan was applied, so the endpoints are current.
+	Applied bool
+}
+
+// Unlock releases the project, if this deployment still holds it, and
+// records the result when there is one.
+func (r *DynamoDBProjectRepository) Unlock(ctx context.Context, workspaceID, id, deploymentID string, res *DeploymentResult) error {
+	sets := []string{"active_deployment = :empty", "updated_at = :now"}
+	removes := []string{}
+	values := map[string]types.AttributeValue{
+		":d":     &types.AttributeValueMemberS{Value: deploymentID},
+		":empty": &types.AttributeValueMemberS{Value: ""},
+		":now":   &types.AttributeValueMemberN{Value: nowMillis()},
+	}
+	names := map[string]string{}
+	if res != nil {
+		names["#status"] = "status"
+		sets = append(sets, "#status = :status")
+		values[":status"] = &types.AttributeValueMemberS{Value: res.Status}
+		if res.ConnectionID != "" {
+			sets = append(sets, "connection_id = :conn")
+			values[":conn"] = &types.AttributeValueMemberS{Value: res.ConnectionID}
+		} else if res.Applied {
+			removes = append(removes, "connection_id", "endpoints", "deployed_at")
+		}
+		if res.Applied && res.ConnectionID != "" {
+			ep, err := attributevalue.Marshal(res.Endpoints)
+			if err != nil {
+				return apierrors.Internal(fmt.Errorf("marshal endpoints: %w", err))
+			}
+			sets = append(sets, "endpoints = :ep", "deployed_at = :now")
+			values[":ep"] = ep
+		}
+	}
+	expr := "SET " + strings.Join(sets, ", ")
+	if len(removes) > 0 {
+		expr += " REMOVE " + strings.Join(removes, ", ")
+	}
+	in := &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(r.table),
+		Key:                       projectKey(workspaceID, id),
+		UpdateExpression:          aws.String(expr),
+		ConditionExpression:       aws.String("attribute_exists(id) AND active_deployment = :d"),
+		ExpressionAttributeValues: values,
+	}
+	if len(names) > 0 {
+		in.ExpressionAttributeNames = names
+	}
+	_, err := r.client.UpdateItem(ctx, in)
+	if err != nil {
+		var gone *types.ConditionalCheckFailedException
+		if errors.As(err, &gone) {
+			return nil // already released, or the project was deleted
+		}
+		return apierrors.Internal(fmt.Errorf("dynamodb UpdateItem: %w", err))
+	}
+	return nil
+}
+
+// MarkConnection records the account a deployment is about to change, before
+// it applies, so a failed apply still leaves the project known to have
+// infrastructure there.
+func (r *DynamoDBProjectRepository) MarkConnection(ctx context.Context, workspaceID, id, connectionID string) error {
+	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:        aws.String(r.table),
+		Key:              projectKey(workspaceID, id),
+		UpdateExpression: aws.String("SET connection_id = :c, #status = :s, updated_at = :now"),
+		ExpressionAttributeNames: map[string]string{
+			"#status": "status",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":c":   &types.AttributeValueMemberS{Value: connectionID},
+			":s":   &types.AttributeValueMemberS{Value: "deploying"},
+			":now": &types.AttributeValueMemberN{Value: nowMillis()},
+		},
+		ConditionExpression: aws.String("attribute_exists(id)"),
+	})
+	if err != nil {
+		return apierrors.Internal(fmt.Errorf("dynamodb UpdateItem: %w", err))
+	}
+	return nil
+}

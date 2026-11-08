@@ -4,6 +4,8 @@ package project
 
 import (
 	"encoding/json"
+
+	"github.com/Thrashy190/Rivo/services/shared/models/deployment"
 	"regexp"
 	"strings"
 )
@@ -39,9 +41,16 @@ type Project struct {
 	Environment   string `dynamodbav:"environment" json:"environment"`
 	Status        string `dynamodbav:"status" json:"status"`
 	LatestVersion int    `dynamodbav:"latest_version" json:"latestVersion"`
-	CreatedBy     string `dynamodbav:"created_by" json:"createdBy"`
-	CreatedAt     int64  `dynamodbav:"created_at" json:"createdAt"`
-	UpdatedAt     int64  `dynamodbav:"updated_at" json:"updatedAt"`
+	// Set while a deployment works on the project: only one at a time.
+	ActiveDeployment string `dynamodbav:"active_deployment,omitempty" json:"activeDeployment,omitempty"`
+	LastDeployment   string `dynamodbav:"last_deployment,omitempty" json:"lastDeployment,omitempty"`
+	// The account the project's infrastructure is in, once deployed.
+	ConnectionID string               `dynamodbav:"connection_id,omitempty" json:"connectionId,omitempty"`
+	DeployedAt   int64                `dynamodbav:"deployed_at,omitempty" json:"deployedAt,omitempty"`
+	Endpoints    deployment.Endpoints `dynamodbav:"endpoints,omitempty" json:"endpoints,omitempty"`
+	CreatedBy    string               `dynamodbav:"created_by" json:"createdBy"`
+	CreatedAt    int64                `dynamodbav:"created_at" json:"createdAt"`
+	UpdatedAt    int64                `dynamodbav:"updated_at" json:"updatedAt"`
 }
 
 type CreateProjectInput struct {

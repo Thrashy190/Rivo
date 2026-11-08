@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/Thrashy190/Rivo/services/shared/authz"
+	apierrors "github.com/Thrashy190/Rivo/services/shared/errors"
 	"github.com/Thrashy190/Rivo/services/shared/models/project"
 	"github.com/Thrashy190/Rivo/services/shared/models/workspace"
 	"github.com/Thrashy190/Rivo/services/shared/repository"
@@ -64,6 +65,15 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 	p, err := projects.GetByID(ctx, m.WorkspaceID, req.PathParameters["projectId"])
 	if err != nil {
 		return apigateway.Error(err), nil
+	}
+
+	// Its state is under the same prefix: deleting it would leave whatever the
+	// project created in AWS with nothing that can remove it.
+	if p.ActiveDeployment != "" {
+		return apigateway.Error(apierrors.Conflict("a deployment of this project is in progress: finish or cancel it first")), nil
+	}
+	if p.ConnectionID != "" {
+		return apigateway.Error(apierrors.Conflict("the project has infrastructure in AWS: destroy it before deleting the project")), nil
 	}
 
 	if err := diagrams.DeletePrefix(ctx, storage.ProjectPrefix(p.WorkspaceID, p.ID)); err != nil {

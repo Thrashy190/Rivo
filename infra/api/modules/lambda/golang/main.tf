@@ -35,7 +35,11 @@ resource "aws_iam_role_policy" "lambda_execution_role" {
           Resource = "*"
         }
       ],
-      var.statement
+      # IAM rejects "Condition": null, so it is only added when set.
+      [for st in var.statement : merge(
+        { Effect = st.Effect, Action = st.Action, Resource = st.Resource },
+        st.Condition == null ? {} : { Condition = st.Condition },
+      )]
     )
   })
 }

@@ -14,6 +14,29 @@ import (
 type Options struct {
 	ProjectName string
 	Region      string
+	// Set when Rivo's engine applies the configuration itself.
+	Deploy *Deploy
+}
+
+// Deploy is where the engine applies a configuration: the role it assumes in
+// the connected account, and where it keeps the state.
+type Deploy struct {
+	AccountID   string
+	RoleARN     string
+	ExternalID  string
+	SessionName string
+	StateBucket string
+	StateKey    string
+	StateRegion string
+}
+
+// Output says which node an output belongs to, so the app can show the
+// address of each deployed service on the canvas.
+type Output struct {
+	Name   string `json:"name"`
+	NodeID string `json:"nodeId"`
+	// url, function_name, table_name or bucket.
+	Kind string `json:"kind"`
 }
 
 // File is one generated file, with a path relative to the configuration.
@@ -40,6 +63,7 @@ type Result struct {
 	Files    []File    `json:"files"`
 	Packages []Package `json:"packages"`
 	Warnings []Warning `json:"warnings"`
+	Outputs  []Output  `json:"outputs"`
 }
 
 // Supported is every node type that becomes Terraform.
@@ -71,6 +95,7 @@ type gen struct {
 	extra    []File
 	packages []Package
 	outputs  []*block
+	outRefs  []Output
 	archive  bool
 }
 
@@ -144,6 +169,25 @@ func Generate(d *Diagram, opts Options) (*Result, error) {
 	}
 
 	return g.result(), nil
+}
+
+// Teardown writes only the providers and the backend, for destroying what a
+// project's state holds: with no resources in the configuration, a destroy
+// plan removes everything, even when the diagram can no longer be generated.
+func Teardown(opts Options) *Result {
+	if !project.ValidRegion(opts.Region) {
+		opts.Region = "us-east-1"
+	}
+	g := &gen{opts: opts, files: map[string]*file{}, archive: true}
+	res := g.result()
+	keep := res.Files[:0]
+	for _, f := range res.Files {
+		if strings.HasSuffix(f.Path, ".tf") {
+			keep = append(keep, f)
+		}
+	}
+	res.Files = keep
+	return res
 }
 
 func label(n *Node) string {
@@ -310,7 +354,8 @@ func (g *gen) allow(fn string, actions []string, resources ...string) {
 	g.policies[fn] = append(g.policies[fn], st)
 }
 
-func (g *gen) output(name, description string, value expr) {
+func (g *gen) output(nodeID, kind, name, description string, value expr) {
+	g.outRefs = append(g.outRefs, Output{Name: name, NodeID: nodeID, Kind: kind})
 	o := newBlock("output", name)
 	o.attr("description", str(description))
 	o.attr("value", value)
@@ -474,7 +519,7 @@ func (g *gen) lambda(n *Node) {
 
 	fn.blank().attr("depends_on", list(raw("aws_iam_role_policy_attachment."+l+"_logs"), raw("aws_cloudwatch_log_group."+l)))
 
-	g.output(l+"_function_name", "Name of the "+n.name()+" function", raw("aws_lambda_function."+l+".function_name"))
+	g.output(n.ID, "function_name", l+"_function_name", "Name of the "+n.name()+" function", raw("aws_lambda_function."+l+".function_name"))
 }
 
 // Limits of the files written next to a function's handler. They live in the
@@ -624,7 +669,7 @@ func (g *gen) api(n *Node) {
 		rt.attr("target", raw(`"integrations/${aws_apigatewayv2_integration.`+integration+`.id}"`))
 	}
 
-	g.output(l+"_url", "Base URL of the "+n.name()+" API", raw("aws_apigatewayv2_stage."+l+".invoke_url"))
+	g.output(n.ID, "url", l+"_url", "Base URL of the "+n.name()+" API", raw("aws_apigatewayv2_stage."+l+".invoke_url"))
 }
 
 // ── DynamoDB ─────────────────────────────────────────────────────────────────
@@ -718,7 +763,7 @@ func (g *gen) table(n *Node) {
 		ttl.attr("enabled", boolean(true))
 	}
 
-	g.output(l+"_table_name", "Name of the "+n.name()+" table", raw("aws_dynamodb_table."+l+".name"))
+	g.output(n.ID, "table_name", l+"_table_name", "Name of the "+n.name()+" table", raw("aws_dynamodb_table."+l+".name"))
 }
 
 type index struct {
@@ -821,7 +866,7 @@ func (g *gen) bucket(n *Node) {
 		g.site(n, l, dists)
 	}
 
-	g.output(l+"_bucket", "Name of the "+n.name()+" bucket", raw("aws_s3_bucket."+l+".bucket"))
+	g.output(n.ID, "bucket", l+"_bucket", "Name of the "+n.name()+" bucket", raw("aws_s3_bucket."+l+".bucket"))
 }
 
 // site uploads the files in site/<bucket>/ and lets the distributions read them.
@@ -969,7 +1014,7 @@ func (g *gen) distribution(n *Node) {
 	d.blank().child("restrictions").child("geo_restriction").attr("restriction_type", str("none"))
 	d.blank().child("viewer_certificate").attr("cloudfront_default_certificate", boolean(true))
 
-	g.output(l+"_url", "Address of the "+n.name()+" distribution", raw(`"https://${aws_cloudfront_distribution.`+l+`.domain_name}"`))
+	g.output(n.ID, "url", l+"_url", "Address of the "+n.name()+" distribution", raw(`"https://${aws_cloudfront_distribution.`+l+`.domain_name}"`))
 }
 
 // ── EventBridge ──────────────────────────────────────────────────────────────
@@ -1038,8 +1083,24 @@ func (g *gen) result() *Result {
 	if g.archive {
 		req.attr("archive", object(map[string]expr{"source": str("hashicorp/archive"), "version": str("~> 2.7")}))
 	}
+	if d := g.opts.Deploy; d != nil {
+		be := providers.add(newBlock("terraform")).child("backend", "s3")
+		be.attr("bucket", str(d.StateBucket))
+		be.attr("key", str(d.StateKey))
+		be.attr("region", str(d.StateRegion))
+		be.attr("encrypt", boolean(true))
+		be.attr("use_lockfile", boolean(true))
+	}
 	p := providers.add(newBlock("provider", "aws"))
 	p.attr("region", raw("var.region"))
+	if d := g.opts.Deploy; d != nil {
+		// Refuses to touch any account but the connected one.
+		p.attr("allowed_account_ids", strList(d.AccountID))
+		ar := p.blank().child("assume_role")
+		ar.attr("role_arn", str(d.RoleARN))
+		ar.attr("external_id", str(d.ExternalID))
+		ar.attr("session_name", str(d.SessionName))
+	}
 	p.blank().child("default_tags").attr("tags", object(map[string]expr{
 		"managed-by":   str("rivo"),
 		"rivo-project": str(g.opts.ProjectName),
@@ -1077,7 +1138,10 @@ func (g *gen) result() *Result {
 
 	outputs := &file{blocks: g.outputs}
 
-	out := &Result{Packages: g.packages, Warnings: g.warnings}
+	out := &Result{Packages: g.packages, Warnings: g.warnings, Outputs: g.outRefs}
+	if out.Outputs == nil {
+		out.Outputs = []Output{}
+	}
 	if out.Packages == nil {
 		out.Packages = []Package{}
 	}

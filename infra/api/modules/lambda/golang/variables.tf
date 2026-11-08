@@ -3,6 +3,8 @@ variable "statement" {
     Effect   = string
     Action   = list(string)
     Resource = string
+    # Such as { StringLike = { "sts:ExternalId" = ["rivo-*"] } }.
+    Condition = optional(map(map(list(string))))
   }))
   description = "Additional IAM policy statements for the Lambda"
   default     = []

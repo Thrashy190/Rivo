@@ -493,6 +493,6 @@ module "api" {
   api_execution_arn = module.rest_api.execution_arn
   authorizer_id     = module.api_authorizer.id
   environment       = var.environment
-  routes            = merge(local.routes, local.workspace_routes, local.project_routes, local.package_routes, local.export_routes)
+  routes            = merge(local.routes, local.workspace_routes, local.project_routes, local.package_routes, local.export_routes, local.connection_routes, local.deployment_routes)
   web_origin        = var.web_origin
 }
