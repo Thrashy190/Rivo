@@ -35,6 +35,8 @@ To include the storage tests, start DynamoDB Local and S3Mock, and set `RIVO_DYN
 - **Only `tfgen` writes HCL.** Every value from a diagram goes through `str()` (quoted, `${` escaped) or a pattern check in `services/shared/tfgen`. Never build HCL from diagram text any other way. `TestDiagramTextCannotInjectHCL` guards it.
 - **The generator and the canvas share keys.** `service-config-schemas.ts`, `connections.ts` and `readiness.ts` mirror `tfgen/generate.go`: a new setting, connection or service changes both sides.
 - **No credentials to the deployment task.** It gets a deployment ID and assumes the target role, with an external ID per connection.
+- **The engine has only the providers in its image.** `services/engine/providers.tf` pins them and the runner uses `-plugin-dir`; tfgen's version constraints (`providers.tf` in its output) must accept those versions. Bump both together.
+- **A deployment changes AWS only after approval.** The plan task saves the plan; only `approve-deployment` starts the apply, and it applies that saved plan.
 - **Every Lambda module passes `cors_allow_origin = var.web_origin`.** Without it the browser hides that Lambda's answers from the web app, including errors. Responses go through `apigateway.Success`, `apigateway.Error` or `apigateway.NoContent`, which add the header: never build an `events.APIGatewayProxyResponse` by hand.
 - **`go build ./...` drops a binary in a Lambda folder.** Use `go vet ./...` to check, as `make lint` does.
 - **Monaco is bundled, not loaded from a CDN** (`web/src/components/CodeEditor/monacoSetup.ts`). `@monaco-editor/react` defaults to a fixed CDN version that `npm audit` cannot see: it served a vulnerable 0.55.1 while `package.json` looked clean.
@@ -46,23 +48,22 @@ To include the storage tests, start DynamoDB Local and S3Mock, and set `RIVO_DYN
 - `web/`: React 19, Vite, TypeScript and Tailwind v4, configured in `src/index.css`.
   - `src/services/`: one module per API area. `api.ts` adds the ID token, renews it with the refresh token once on a 401, and turns `{error: {code, message}}` into `ApiError`.
   - `src/features/workspace/`: `WorkspaceProvider` loads the workspace in the URL and its folders; `useWorkspace().can(...)` hides what the role cannot do. `services/workspaces.ts` mirrors the role table in `services/shared/models/workspace`: change both together.
-  - `features/canvas/views/` and `features/projects/Global*View.tsx` are the simulated deploy history, kept unrouted as a starting point for the deployment dashboard.
   - `src/features/canvas/`: hand-written canvas with no graph library. `useCanvas.ts` holds live state; `types/infra.ts` is the saved format.
   - `aws-services.tsx` and `service-config-schemas.ts`: the static service catalog and its settings. `GENERATED_TYPES` lists what becomes Terraform. `connections.ts` says what each connection means, `readiness.ts` what still blocks a service, and `blueprints.ts` holds the ready-made diagrams.
-  - `Library.tsx` (left), `CanvasArea.tsx` (canvas and toolbar) and `inspector/` (right) make up the editor. `modals/TerraformModal.tsx` previews and downloads the export.
-- `services/`: Go Lambdas, one module per action, plus `shared/`. See `docs/services.md`. `shared/tfgen` turns a diagram into Terraform.
-- `infra/api/`: Terraform for the API. `infra/web/`: Terraform for S3 and CloudFront. They have separate state.
+  - `Library.tsx` (left), `CanvasArea.tsx` (canvas and toolbar) and `inspector/` (right) make up the editor. `modals/TerraformModal.tsx` previews and downloads the export, and `modals/CodeModal.tsx` is the code editor.
+  - `src/features/deploy/`: the Deploy panel, the engine's log and the API test console. `pages/AccountsPage.tsx` connects AWS accounts and `pages/DeploymentsPage.tsx` lists every deployment.
+- `services/`: Go Lambdas, one module per action, plus `shared/`. See `docs/services.md`. `shared/tfgen` turns a diagram into Terraform, and `engine/` is the Fargate task that plans and applies it (see "How a deployment runs" in `docs/architecture.md`).
+- `infra/api/`: Terraform for the API and the engine (`engine.tf`, `connections.tf`, `deployments.tf`). Applying it builds the engine image with Docker. `infra/web/`: Terraform for S3 and CloudFront. They have separate state.
 - `docs/`: architecture, configuration, deployment and working on Lambdas.
 
 ## Pending
 
 In order:
 
-1. Connect AWS accounts (role ARN plus external ID), run plan, approval and apply on Fargate with the Terraform from `tfgen`, keep each project's state in S3 with a lock, and show pipelines in a dashboard. Record task duration per workspace, because hosting may later bill by infrastructure and usage time.
-2. Let a bucket served by CloudFront take an uploaded site build, as a Lambda takes a `.zip`, instead of the placeholder page.
-3. Generate more services: SQS, SNS, Secrets Manager, and VPCs with their subnets.
-4. Add project-level access, so a workspace can limit who sees each project.
-5. Show and create versions in the app, and add a platform administration screen for accounts.
-6. Push the diagram and Terraform to a GitHub repository through a GitHub App.
+1. Let a bucket served by CloudFront take an uploaded site build, as a Lambda takes a `.zip`, instead of the placeholder page.
+2. Generate more services: SQS, SNS, Secrets Manager, and VPCs with their subnets.
+3. Add project-level access, so a workspace can limit who sees each project.
+4. Show and create versions in the app, deploy a version instead of the draft, and add a platform administration screen for accounts.
+5. Push the diagram and Terraform to a GitHub repository through a GitHub App.
 
 The engine uses Terraform, and hosting is not charged for yet. Before charging, review Terraform's BUSL, which forbids paid hosted offerings that compete with IBM's paid versions.
