@@ -41,7 +41,9 @@ export type WorkspacePermission =
   | "folders:manage"
   | "projects:create"
   | "projects:update"
-  | "projects:delete";
+  | "projects:delete"
+  | "deployments:run"
+  | "connections:manage";
 
 export function can(role: WorkspaceRole | undefined, permission: WorkspacePermission): boolean {
   const perms = role ? ROLE_PERMISSIONS[role] : [];

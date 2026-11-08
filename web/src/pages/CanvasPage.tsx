@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useParams, useSearchParams } from "react-router";
 import { useCanvas } from "../features/canvas/useCanvas";
 import { CanvasTopBar } from "../features/canvas/CanvasTopBar";
 import { CanvasArea } from "../features/canvas/CanvasArea";
@@ -13,6 +13,8 @@ import { ZipModal } from "../features/canvas/modals/ZipModal";
 import { TerraformModal } from "../features/canvas/modals/TerraformModal";
 import { withInlineCode, withPackage } from "../features/canvas/lambdaSource";
 import { useWorkspace } from "../features/workspace/workspaceContext";
+import { DeployPanel } from "../features/deploy/DeployPanel";
+import { ApiTestModal } from "../features/deploy/ApiTestModal";
 import { FullPageMessage } from "../features/workspace/FullPageMessage";
 import { Button } from "../components/Button/Button";
 import { useSnackbar } from "../context/SnackbarContext";
@@ -47,6 +49,8 @@ export function CanvasPage() {
   const { workspace, can } = useWorkspace();
   const { push } = useSnackbar();
   const canSave = can("projects:update");
+  const canDeploy = can("deployments:run");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const {
     nodes, edges, viewport, setViewport,
@@ -144,6 +148,18 @@ export function CanvasPage() {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [lambdaModal, setLambdaModal] = useState<LambdaModal>(null);
   const [terraformOpen, setTerraformOpen] = useState(false);
+  // ?deployment=<id> opens the deploy panel on that deployment.
+  const linkedDeployment = searchParams.get("deployment") ?? undefined;
+  const [deployOpen, setDeployOpen] = useState(Boolean(linkedDeployment));
+  const [apiTestNodeId, setApiTestNodeId] = useState<string | null>(null);
+
+  const reloadProject = useCallback(() => {
+    projectsService
+      .get(workspace.id, projectId)
+      .then(setProject)
+      .catch(() => {});
+  }, [workspace.id, projectId]);
+  const liveIds = useMemo(() => new Set(Object.keys(project?.endpoints ?? {})), [project?.endpoints]);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
@@ -340,6 +356,9 @@ export function CanvasPage() {
         onExportJSON={toJSON}
         onSave={() => void handleSave()}
         onOpenTerraform={() => setTerraformOpen(true)}
+        onOpenDeploy={() => setDeployOpen((v) => !v)}
+        deployOpen={deployOpen}
+        deployStatus={project?.activeDeployment ? "deploying" : project?.status}
       />
 
       {conflict && (
@@ -373,6 +392,7 @@ export function CanvasPage() {
             readOnly={!canSave}
             animated={animated}
             emptyState={emptyState}
+            liveIds={liveIds}
             onAddNode={(type, pos) => selectNode(addNode(type, pos))}
             onMoveNode={moveNode}
             onResizeNode={resizeNode}
@@ -391,6 +411,24 @@ export function CanvasPage() {
               })
             }
           />
+          {deployOpen && project && (
+            <DeployPanel
+              workspaceId={workspace.id}
+              project={project}
+              nodes={nodes}
+              isDirty={isDirty}
+              canSave={canSave}
+              canDeploy={canDeploy}
+              initialDeploymentId={linkedDeployment}
+              onSave={handleSave}
+              onProjectChanged={reloadProject}
+              onSelectNode={(id) => selectNode(id)}
+              onClose={() => {
+                setDeployOpen(false);
+                if (linkedDeployment) setSearchParams({}, { replace: true });
+              }}
+            />
+          )}
         </div>
 
         {selectedNode && (
@@ -406,6 +444,9 @@ export function CanvasPage() {
             onSelectEdge={selectEdge}
             onOpenCode={() => setLambdaModal("code")}
             onOpenZip={() => setLambdaModal("zip")}
+            endpoints={project?.endpoints?.[selectedNode.id]}
+            region={project?.region}
+            onTestApi={canDeploy ? () => setApiTestNodeId(selectedNode.id) : undefined}
           />
         )}
         {selectedEdge && (
@@ -421,6 +462,21 @@ export function CanvasPage() {
           />
         )}
       </div>
+
+      {apiTestNodeId && project?.endpoints?.[apiTestNodeId]?.url && (() => {
+        const apiNode = nodes.find((n) => n.id === apiTestNodeId);
+        return apiNode ? (
+          <ApiTestModal
+            workspaceId={workspace.id}
+            projectId={projectId}
+            api={apiNode}
+            nodes={nodes}
+            edges={edges}
+            baseUrl={project.endpoints[apiTestNodeId].url}
+            onClose={() => setApiTestNodeId(null)}
+          />
+        ) : null;
+      })()}
 
       {terraformOpen && (
         <TerraformModal

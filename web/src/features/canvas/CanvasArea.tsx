@@ -18,6 +18,8 @@ interface CanvasAreaProps {
   animated?: boolean;
   // Shown in the middle of an empty canvas.
   emptyState?: ReactNode;
+  // Nodes that are deployed and reachable.
+  liveIds?: Set<string>;
   onAddNode: (serviceId: string, position: { x: number; y: number }) => void;
   onMoveNode: (nodeId: string, position: { x: number; y: number }) => void;
   onResizeNode: (nodeId: string, size: { width: number; height: number }) => void;
@@ -51,6 +53,7 @@ export function CanvasArea({
   readOnly = false,
   animated = false,
   emptyState,
+  liveIds,
   onAddNode,
   onMoveNode,
   onResizeNode,
@@ -341,6 +344,7 @@ export function CanvasArea({
               selected={selectedNodeId === node.id}
               connectable={!!connecting && connecting.fromId !== node.id}
               summary={nodeSummary(node, nodes, edges)}
+              live={liveIds?.has(node.id)}
               issues={nodeIssues(node, nodes, edges)}
               parentLabel={parent ? String(parent.config.name ?? parent.label) : undefined}
               readOnly={readOnly}

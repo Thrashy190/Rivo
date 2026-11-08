@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { FolderIcon, LayersIcon, PlusIcon, UsersIcon } from "../../components/icons";
+import { ActivityIcon, FolderIcon, LayersIcon, PlusIcon, SettingsIcon, UsersIcon } from "../../components/icons";
 import { foldersService, type Folder } from "../../services/folders";
 import { errorMessage } from "../../services/api";
 import { useSnackbar } from "../../context/SnackbarContext";
@@ -80,6 +80,7 @@ export function WorkspaceSidebar() {
     <aside className="w-56 shrink-0 h-full bg-page border-r border-edge/60 flex flex-col overflow-y-auto">
       <nav className="flex-1 py-3 px-2" aria-label="Workspace">
         <SidebarLink to={root} icon={<LayersIcon />} label="All projects" active={location.pathname === root} />
+        <SidebarLink to={`${root}/deployments`} icon={<ActivityIcon />} label="Deployments" active={location.pathname === `${root}/deployments`} />
 
         <SectionLabel>Folders</SectionLabel>
         {folders.length === 0 && !creating && (
@@ -123,6 +124,7 @@ export function WorkspaceSidebar() {
 
         <SectionLabel>Workspace</SectionLabel>
         <SidebarLink to={`${root}/members`} icon={<UsersIcon />} label="Members" active={location.pathname === `${root}/members`} />
+        <SidebarLink to={`${root}/accounts`} icon={<SettingsIcon />} label="AWS accounts" active={location.pathname === `${root}/accounts`} />
       </nav>
 
       {deleting && (

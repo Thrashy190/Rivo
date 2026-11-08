@@ -11,6 +11,15 @@ export interface ApiProject {
   environment: string;
   status: "draft" | "deployed" | "deploying" | "failed";
   latestVersion: number;
+  // Set while a deployment works on the project.
+  activeDeployment?: string;
+  lastDeployment?: string;
+  // The AWS account its infrastructure is in, once deployed.
+  connectionId?: string;
+  deployedAt?: number;
+  // What each deployed node is reachable at: node ID, then kind (url,
+  // function_name, table_name, bucket), then value.
+  endpoints?: Record<string, Record<string, string>>;
   createdBy: string;
   createdAt: number;
   updatedAt: number;
@@ -106,3 +115,27 @@ export const projectsService = {
   exportTerraform: (workspaceId: string, projectId: string, version?: number) =>
     api.post<TerraformExport>(`${one(workspaceId, projectId)}/terraform`, version ? { version } : {}),
 };
+
+export interface TestRequest {
+  nodeId: string;
+  method: string;
+  path: string;
+  query: Record<string, string>;
+  headers: Record<string, string>;
+  body: string;
+}
+
+export interface TestResponse {
+  url: string;
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+  base64?: boolean;
+  truncated?: boolean;
+  durationMs: number;
+}
+
+// Sends a request to an API the project deployed, through Rivo
+// (services/project/test-api).
+export const testApi = (workspaceId: string, projectId: string, req: TestRequest) =>
+  api.post<TestResponse>(`${one(workspaceId, projectId)}/test-request`, req);

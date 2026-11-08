@@ -21,7 +21,16 @@ interface CanvasTopBarProps {
   onExportJSON: () => InfraModel;
   onSave?: () => void;
   onOpenTerraform?: () => void;
+  onOpenDeploy?: () => void;
+  deployOpen?: boolean;
+  deployStatus?: "draft" | "deployed" | "deploying" | "failed";
 }
+
+const DEPLOY_DOT: Record<string, string> = {
+  deployed: "bg-emerald-500",
+  deploying: "bg-indigo-500 animate-pulse",
+  failed: "bg-red-500",
+};
 
 export function CanvasTopBar({
   projectName,
@@ -36,6 +45,9 @@ export function CanvasTopBar({
   onExportJSON,
   onSave,
   onOpenTerraform,
+  onOpenDeploy,
+  deployOpen = false,
+  deployStatus,
 }: CanvasTopBarProps) {
   const [jsonOpen, setJsonOpen] = useState(false);
   const status = !canSave ? null : isSaving ? "Saving…" : isDirty ? "Unsaved changes" : "All changes saved";
@@ -109,6 +121,25 @@ export function CanvasTopBar({
                 <path d="M7.3 3.6 12 6.3v5.4L7.3 9V3.6ZM12.7 6.3l4.7-2.7V9l-4.7 2.7V6.3ZM2 .6l4.7 2.7v5.4L2 6V.6ZM7.3 9.6 12 12.3v5.4l-4.7-2.7V9.6Z" />
               </svg>
               Terraform
+            </Button>
+          )}
+
+          {onOpenDeploy && (
+            <Button
+              size="sm"
+              variant={deployOpen ? "primary" : "secondary"}
+              onClick={onOpenDeploy}
+              aria-pressed={deployOpen}
+              title={deployStatus === "deployed" ? "Deployed. Plan changes, or see the history." : "Plan and apply this diagram to an AWS account"}
+            >
+              {deployStatus && DEPLOY_DOT[deployStatus] ? (
+                <span className={`w-1.5 h-1.5 rounded-full ${DEPLOY_DOT[deployStatus]}`} aria-hidden="true" />
+              ) : (
+                <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M8 13V3M4 7l4-4 4 4" />
+                </svg>
+              )}
+              Deploy
             </Button>
           )}
 

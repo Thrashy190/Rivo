@@ -64,9 +64,27 @@ interface NodeInspectorProps {
   onSelectEdge: (edgeId: string) => void;
   onOpenCode: () => void;
   onOpenZip: () => void;
+  // What the node is reachable at, once deployed (kind to value).
+  endpoints?: Record<string, string>;
+  region?: string;
+  onTestApi?: () => void;
 }
 
-export function NodeInspector({ node, nodes, edges, readOnly = false, onClose, onUpdate, onRemove, onSelectEdge, onOpenCode, onOpenZip }: NodeInspectorProps) {
+export function NodeInspector({
+  node,
+  nodes,
+  edges,
+  readOnly = false,
+  onClose,
+  onUpdate,
+  onRemove,
+  onSelectEdge,
+  onOpenCode,
+  onOpenZip,
+  endpoints,
+  region = "us-east-1",
+  onTestApi,
+}: NodeInspectorProps) {
   const schema = SERVICE_SCHEMAS[node.type] ?? {};
   const issues = nodeIssues(node, nodes, edges);
   const generated = GENERATED_TYPES.has(node.type) || node.variant === "container";
@@ -112,6 +130,8 @@ export function NodeInspector({ node, nodes, edges, readOnly = false, onClose, o
           ))}
         </div>
       )}
+
+      {endpoints && Object.keys(endpoints).length > 0 && <Deployed node={node} endpoints={endpoints} region={region} onTestApi={onTestApi} />}
 
       {node.type === "lambda" && (
         <LambdaCode
@@ -179,6 +199,60 @@ export function NodeInspector({ node, nodes, edges, readOnly = false, onClose, o
 
       {!readOnly && <DangerButton onClick={() => onRemove(node.id)}>Remove from the diagram</DangerButton>}
     </Shell>
+  );
+}
+
+// Links to the deployed resource in the AWS console.
+function consoleLink(kind: string, value: string, region: string): string | null {
+  const base = `https://${region}.console.aws.amazon.com`;
+  const v = encodeURIComponent(value);
+  switch (kind) {
+    case "function_name":
+      return `${base}/lambda/home?region=${region}#/functions/${v}`;
+    case "table_name":
+      return `${base}/dynamodbv2/home?region=${region}#table?name=${v}`;
+    case "bucket":
+      return `https://s3.console.aws.amazon.com/s3/buckets/${v}?region=${region}`;
+  }
+  return null;
+}
+
+function Deployed({ node, endpoints, region, onTestApi }: { node: CanvasNode; endpoints: Record<string, string>; region: string; onTestApi?: () => void }) {
+  return (
+    <section className="px-4 py-4 border-b border-edge">
+      <p className={`${sectionTitle} mb-2.5 flex items-center gap-1.5`}>
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+        Deployed
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {Object.entries(endpoints).map(([kind, value]) => {
+          const link = kind === "url" ? value : consoleLink(kind, value, region);
+          return (
+            <div key={kind} className="flex items-center gap-2 min-w-0">
+              <code className="flex-1 min-w-0 truncate text-[11px] font-mono text-ink" title={value}>
+                {value}
+              </code>
+              {link && (
+                <a href={link} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] font-medium text-indigo-500 hover:text-indigo-400">
+                  {kind === "url" ? "Open ↗" : "Console ↗"}
+                </a>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {node.type === "api-gateway" && endpoints.url && onTestApi && (
+        <button
+          onClick={onTestApi}
+          className="mt-3 w-full h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+        >
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+            <path d="M4 2.5v11l9-5.5-9-5.5Z" />
+          </svg>
+          Test the API
+        </button>
+      )}
+    </section>
   );
 }
 

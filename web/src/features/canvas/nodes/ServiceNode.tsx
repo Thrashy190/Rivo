@@ -15,6 +15,8 @@ interface ServiceNodeProps {
   summary?: string;
   issues?: Issue[];
   parentLabel?: string;
+  // Deployed and reachable.
+  live?: boolean;
   readOnly?: boolean;
   onMove: (id: string, position: { x: number; y: number }) => void;
   onDragEnd?: (id: string, position: { x: number; y: number }) => void;
@@ -32,6 +34,7 @@ export function ServiceNode({
   summary,
   issues = [],
   parentLabel,
+  live = false,
   readOnly = false,
   onMove,
   onDragEnd,
@@ -131,7 +134,15 @@ export function ServiceNode({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-ink leading-tight truncate">{name}</p>
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink leading-tight min-w-0">
+            <span className="truncate">{name}</span>
+            {live && (
+              <span title="Deployed" className="shrink-0 inline-flex items-center gap-1 px-1.5 py-px rounded-full bg-emerald-500/10 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Live
+              </span>
+            )}
+          </p>
           <p className="text-[11px] text-ink-dim leading-tight truncate mt-1">{summary ?? node.label}</p>
         </div>
 

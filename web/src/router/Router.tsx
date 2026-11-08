@@ -11,6 +11,8 @@ import { WorkspacesPage } from "../pages/WorkspacesPage";
 import { CreateWorkspacePage } from "../pages/CreateWorkspacePage";
 import { ProjectsPage } from "../pages/ProjectsPage";
 import { MembersPage } from "../pages/MembersPage";
+import { AccountsPage } from "../pages/AccountsPage";
+import { DeploymentsPage } from "../pages/DeploymentsPage";
 import { CreateProjectPage } from "../pages/CreateProjectPage";
 import { CanvasPage } from "../pages/CanvasPage";
 import { WorkspaceProvider } from "../features/workspace/WorkspaceProvider";
@@ -37,6 +39,8 @@ const Router = () => (
                 <Route index element={<ProjectsPage />} />
                 <Route path="folders/:folderId" element={<ProjectsPage />} />
                 <Route path="members" element={<MembersPage />} />
+                <Route path="deployments" element={<DeploymentsPage />} />
+                <Route path="accounts" element={<AccountsPage />} />
               </Route>
               <Route path="projects/new" element={<CreateProjectPage />} />
               <Route path="projects/:projectId" element={<CanvasPage />} />
