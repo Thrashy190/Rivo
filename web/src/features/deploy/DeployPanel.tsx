@@ -115,13 +115,14 @@ export function DeployPanel({
   const busyProject = Boolean(project.activeDeployment) || (shown ? !FINISHED.includes(shown.status) : false);
 
   const start = async (action: "deploy" | "destroy") => {
-    if (!target) return;
+    // A destroy uses the project's own account, which the API knows.
+    if (action === "deploy" && !target) return;
     if (action === "deploy" && isDirty) {
       if (!canSave || !(await onSave())) return;
     }
     setBusy(action);
     try {
-      const d = await deploymentsService.start(workspaceId, project.projectId, { connectionId: target.connectionId, action });
+      const d = await deploymentsService.start(workspaceId, project.projectId, { connectionId: target?.connectionId, action });
       setDetail(null);
       setSelectedId(d.deploymentId);
       setHistoryRun((n) => n + 1);
