@@ -265,18 +265,13 @@ resource "aws_ecs_task_definition" "engine" {
     cpu_architecture        = "ARM64"
   }
 
-  # The image is read-only; Terraform works in this scratch volume.
-  volume {
-    name = "work"
-  }
-
   container_definitions = jsonencode([{
-    name                   = "runner"
-    image                  = "${aws_ecr_repository.engine.repository_url}:${local.engine_tag}"
-    essential              = true
-    readonlyRootFilesystem = true
-    stopTimeout            = 120
-    mountPoints            = [{ sourceVolume = "work", containerPath = "/tmp" }]
+    name      = "runner"
+    image     = "${aws_ecr_repository.engine.repository_url}:${local.engine_tag}"
+    essential = true
+    # Terraform works in /tmp, which the image leaves writable for the
+    # nonroot user. Fargate volumes are owned by root, so none is mounted.
+    stopTimeout = 120
     environment = [
       { name = "AWS_REGION", value = data.aws_region.current.region },
       { name = "DEPLOYMENTS_TABLE_NAME", value = module.deployments_table.name },
