@@ -80,9 +80,9 @@ function Setup({ connection, canManage, onChange }: { connection: Connection; ca
   };
 
   return (
-    <div className="mt-4 pt-4 border-t border-edge/60 grid gap-5">
-      <ol className="grid gap-5">
-        <li>
+    <div className="mt-4 pt-4 border-t border-edge/60">
+      <ol className="flex flex-col gap-5 min-w-0">
+        <li className="min-w-0">
           <p className="text-xs font-semibold text-ink mb-1">1. Create the role in the AWS account</p>
           <p className="text-xs text-ink-dim mb-3 max-w-2xl">
             The template creates the role {connection.setup.roleName}, which only Rivo can assume, and only with this
@@ -114,7 +114,7 @@ function Setup({ connection, canManage, onChange }: { connection: Connection; ca
           </div>
         </li>
 
-        <li>
+        <li className="min-w-0">
           <p className="text-xs font-semibold text-ink mb-1">2. Paste the role's ARN</p>
           <p className="text-xs text-ink-dim mb-3">It is the RoleArn output of the stack.</p>
           <form onSubmit={verify} className="flex flex-col sm:flex-row gap-2 sm:items-start max-w-2xl">
@@ -157,7 +157,7 @@ function ConnectionCard({
   const [open, setOpen] = useState(connection.status !== "verified");
   const s = STATUS[connection.status];
   return (
-    <div className="rounded-xl border border-edge bg-card/40 p-4">
+    <div className="rounded-xl border border-edge bg-card/40 p-4 min-w-0">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold text-[11px]">AWS</div>
         <div className="min-w-0 flex-1">
@@ -187,7 +187,16 @@ function ConnectionCard({
         )}
       </div>
       {connection.roleArn && !open && <p className="mt-2 ml-12 text-[11px] font-mono text-ink-dim truncate">{connection.roleArn}</p>}
-      {open && canManage && <Setup connection={connection} canManage={canManage} onChange={onChange} />}
+      {open && canManage && (
+        <Setup
+          connection={connection}
+          canManage={canManage}
+          onChange={(c) => {
+            onChange(c);
+            if (c.status === "verified") setOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
