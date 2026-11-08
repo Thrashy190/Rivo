@@ -101,11 +101,10 @@ Platform administrators can read every workspace but can only change those they 
    make deploy ENV=dev
    ```
 
-3. Build the app with the API's address and upload it:
+3. Build the app with the API's address and upload it. The target reads the address from `infra/api`; set `VITE_API_URL` to use another one:
 
    ```bash
    cd ../..
-   VITE_API_URL=$(terraform -chdir=infra/api output -raw api_base_url) npm --prefix web run build
    make -C infra/web deploy
    ```
 

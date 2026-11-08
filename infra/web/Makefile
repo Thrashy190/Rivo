@@ -1,6 +1,6 @@
 .PHONY: dev-init dev-plan dev-apply dev-destroy \
         prod-init prod-plan prod-apply prod-destroy \
-        upload invalidate deploy output fmt validate show-plan
+        build upload invalidate deploy output fmt validate show-plan
 
 PLANS_DIR = .plans
 DIST      = ../../web/dist
@@ -40,8 +40,18 @@ prod-apply: $(PLANS_DIR)/prod.tfplan
 
 # ── S3 + CloudFront ───────────────────────────────────────────────────────────
 
+## Build the web app for the hosted API. Without VITE_API_URL the app calls
+## /api, which only exists under `npm run dev`: hosted, CloudFront answers it
+## with index.html and every page fails with "Unexpected token '<'".
+## It defaults to the api_base_url output of infra/api.
+VITE_API_URL ?= $(shell terraform -chdir=../api output -raw api_base_url 2>/dev/null)
+
+build:
+	@test -n "$(VITE_API_URL)" || { echo "Set VITE_API_URL to the API's base URL (terraform -chdir=../api output api_base_url)."; exit 1; }
+	@echo "Building the web app for $(VITE_API_URL)"
+	VITE_API_URL=$(VITE_API_URL) npm --prefix ../../web run build
+
 ## Upload the Vite build output (dist/) to S3
-## Run `npm run build` first
 upload:
 	@BUCKET=$$(terraform output -raw bucket_name) && \
 	echo "Uploading $(DIST)/ → s3://$$BUCKET" && \
@@ -61,8 +71,8 @@ invalidate:
 	  --paths "/*" && \
 	echo "Invalidation created."
 
-## Full deploy: upload → invalidate
-deploy: upload invalidate
+## Full deploy: build → upload → invalidate
+deploy: build upload invalidate
 	@echo "Deploy complete."
 
 # ── Utils ─────────────────────────────────────────────────────────────────────
