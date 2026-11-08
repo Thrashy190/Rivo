@@ -58,12 +58,6 @@ To include the storage tests, start DynamoDB Local and S3Mock, and set `RIVO_DYN
 
 ## Pending
 
-In order:
-
-1. Let a bucket served by CloudFront take an uploaded site build, as a Lambda takes a `.zip`, instead of the placeholder page.
-2. Generate more services: SQS, SNS, Secrets Manager, and VPCs with their subnets.
-3. Add project-level access, so a workspace can limit who sees each project.
-4. Show and create versions in the app, deploy a version instead of the draft, and add a platform administration screen for accounts.
-5. Push the diagram and Terraform to a GitHub repository through a GitHub App.
+`docs/roadmap.md` lists the next features in the order the maintainer wants them built, with where each one starts. Work through it in that order, and update it as items land.
 
 The engine uses Terraform, and hosting is not charged for yet. Before charging, review Terraform's BUSL, which forbids paid hosted offerings that compete with IBM's paid versions.

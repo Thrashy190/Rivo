@@ -38,7 +38,7 @@
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
-> **Status:** early and actively developed. You can draw, save and share diagrams with your team, and download them as Terraform for six services. Rivo does not deploy them for you yet. See [Limitations](#limitations). The interface is English only for now.
+> **Status:** early and actively developed. You can draw, save and share diagrams with your team, and deploy them to AWS accounts you connect, after approving a plan. Six services are generated so far. See [Limitations](#limitations). The interface is English only for now.
 
 <p align="center">
   <img src="docs/images/canvas.png" alt="The Rivo canvas with three blueprints: an API Gateway routed to a Lambda function that reads and writes a DynamoDB table, a CloudFront distribution serving an S3 bucket, and EventBridge rules running a worker function. The service library is on the left, and the selected function's code, environment variables and settings are in the inspector on the right." width="100%">
@@ -58,7 +58,8 @@
 
 - Download Terraform generated from the diagram, with the IAM permissions each connection needs, the functions' code and a placeholder page for each website.
 - It covers Lambda, API Gateway (HTTP APIs), EventBridge rules, DynamoDB, S3 and CloudFront. Other services stay in the diagram as notes, and the download lists what it left out.
-- Apply it with `terraform apply` and your own AWS credentials. Every resource name starts with `name_prefix`, so you can create several copies in one account.
+- Or deploy from the app: connect an AWS account with a role Rivo assumes (no keys are stored), review the plan, approve it and follow the log. Destroying works the same way.
+- Deployed services show their addresses, an API can be tested from the canvas, and every deployment is listed with its history.
 
 **Work as a team**
 
@@ -144,15 +145,16 @@ Rivo has two kinds of administrator. **Platform administrators** run the install
 
 Platform administrators can only change a workspace they belong to, and each time they read one it is logged. Tell the people using your installation about this access.
 
-Deployment permissions take effect once deployments exist. See [Limitations](#limitations).
-
 ## Limitations
 
-- **Rivo generates Terraform but does not deploy it yet.** You download it and apply it yourself. It covers six services, and leaves the rest out with a warning. Deploying from the app, its history and sign-in with GitHub or Google are hidden until they work.
-- **Versions are only in the API.** The app saves drafts, but does not create or show numbered versions yet.
+- **Six services are generated.** The rest stay in the diagram as notes, with a warning. Sign-in with GitHub or Google is hidden until it works.
+- **Deployments use the saved draft.** Versions are only in the API for now.
+- **Lambda dependencies need a `.zip`.** Code written in the editor has what its runtime includes, such as boto3.
 - **No screen for platform administration yet.** Accounts that can open workspaces, and other administrators, are created through the API, as in [the deployment guide](docs/deployment.md#give-someone-access). Inviting people to a workspace, and adding its owners, works in the app.
 - **Access is per workspace.** Everyone in a workspace can see all its projects.
 - **AWS only.** Rivo runs on AWS and designs for AWS.
+
+What comes next is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Updating
 
@@ -165,7 +167,6 @@ make plan ENV=dev
 make deploy ENV=dev
 
 cd ../..
-VITE_API_URL=$(terraform -chdir=infra/api output -raw api_base_url) npm --prefix web run build
 make -C infra/web deploy
 ```
 
@@ -175,6 +176,7 @@ Each feature and fix is a [release](https://github.com/Thrashy190/Rivo/releases)
 
 | Symptom | Try |
 |---|---|
+| `Unexpected token '<', "<!doctype"...` | The hosted app was built without `VITE_API_URL`, so it calls `/api` and gets the page instead. Deploy it with `make -C infra/web deploy`, which builds it with the API's address. |
 | `Can't reach the Rivo API` | Locally, set `RIVO_API_URL` in `web/.env.local` and restart `npm run dev`. Hosted, build with `VITE_API_URL`. |
 | The browser console shows a CORS error | Set `web_origin` to the exact address of the app, with no trailing slash, and apply `infra/api` again. |
 | `Your account can't use Rivo yet` | The person is in Cognito but not in the `users` table, or is disabled. Create the account through the API or the app, not in the AWS console. |
