@@ -87,7 +87,7 @@ func handler(ctx context.Context, ev events.CloudWatchEvent) error {
 	if err != nil {
 		return err
 	}
-	if !deployment.Running(d.Status) {
+	if !stillRunning(phase, d.Status) {
 		return nil
 	}
 	reason := t.StoppedReason
@@ -101,7 +101,7 @@ func handler(ctx context.Context, ev events.CloudWatchEvent) error {
 		msg += " (" + r + ")"
 	}
 	log.Printf("deployment %s/%s: %s", ws, id, msg)
-	if _, err := deployments.Transition(ctx, ws, id, []string{deployment.StatusQueued, deployment.StatusPlanning, deployment.StatusApplying}, deployment.StatusFailed,
+	if _, err := deployments.Transition(ctx, ws, id, phaseStatuses(phase), deployment.StatusFailed,
 		map[string]any{"error": msg + ". Plan again to continue.", "finished_at": time.Now().UnixMilli()}); err != nil {
 		return nil // it finished in the meantime
 	}
@@ -110,6 +110,25 @@ func handler(ctx context.Context, ev events.CloudWatchEvent) error {
 		res = &repository.DeploymentResult{Status: project.StatusFailed, ConnectionID: d.ConnectionID}
 	}
 	return projects.Unlock(ctx, ws, d.ProjectID, d.ID, res)
+}
+
+// phaseStatuses are the statuses a deployment has while a task of this phase
+// works on it. The plan task stops after someone may already have approved
+// the plan, and that must not fail the apply that is running.
+func phaseStatuses(phase string) []string {
+	if phase == deployment.PhaseApply {
+		return []string{deployment.StatusApplying}
+	}
+	return []string{deployment.StatusQueued, deployment.StatusPlanning}
+}
+
+func stillRunning(phase, status string) bool {
+	for _, s := range phaseStatuses(phase) {
+		if s == status {
+			return true
+		}
+	}
+	return false
 }
 
 func main() {
